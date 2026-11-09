@@ -14,6 +14,7 @@ import {
 } from "@/components/ui-kits/select/select";
 import { cn } from "@/lib/utils";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, 200] as const;
 
@@ -38,6 +39,7 @@ export function Pagination({
   onPageSizeChange,
   className,
 }: PaginationProps) {
+  const { t } = useT("data.gateway.schema");
   if (isPaginationRedundant(PAGE_SIZE_OPTIONS, totalCount, pageSize, pageNo <= 1)) return null;
 
   const pageCount = Math.max(1, totalPages);
@@ -52,7 +54,7 @@ export function Pagination({
     >
       {pageSizeOptions.length > 1 && (
         <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">Rows per page</span>
+          <span className="hidden text-xs text-muted-foreground sm:inline">{t("SHARED_PAGINATION.ROWS_PER_PAGE")}</span>
           <Select value={String(pageSize)} onValueChange={onPageSizeChange} disabled={isLoading}>
             <SelectTrigger className="h-7 w-[72px] text-xs">
               <SelectValue />
@@ -70,7 +72,7 @@ export function Pagination({
 
       <div className="flex items-center gap-3">
         <span className="text-xs text-muted-foreground">
-          Page {pageNo} of {pageCount}
+          {t("SHARED_PAGINATION.PAGE_PAGENO_OF_PAGECOUNT", { pageNo, pageCount })}
         </span>
         <div className="flex items-center gap-1">
           <Button
@@ -79,7 +81,7 @@ export function Pagination({
             className="h-7 w-7"
             disabled={pageNo <= 1 || isLoading}
             onClick={() => onPageChange(1)}
-            title="First page"
+            title={t("SHARED_PAGINATION.FIRST_PAGE")}
           >
             <ChevronFirst className="h-4 w-4" />
           </Button>
@@ -89,7 +91,7 @@ export function Pagination({
             className="h-7 w-7"
             disabled={pageNo <= 1 || isLoading}
             onClick={() => onPageChange(pageNo - 1)}
-            title="Previous page"
+            title={t("SHARED_PAGINATION.PREVIOUS_PAGE")}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -99,7 +101,7 @@ export function Pagination({
             className="h-7 w-7"
             disabled={pageNo >= pageCount || isLoading}
             onClick={() => onPageChange(pageNo + 1)}
-            title="Next page"
+            title={t("SHARED_PAGINATION.NEXT_PAGE")}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -109,7 +111,7 @@ export function Pagination({
             className="h-7 w-7"
             disabled={pageNo >= pageCount || isLoading}
             onClick={() => onPageChange(pageCount)}
-            title="Last page"
+            title={t("SHARED_PAGINATION.LAST_PAGE")}
           >
             <ChevronLast className="h-4 w-4" />
           </Button>

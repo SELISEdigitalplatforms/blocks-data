@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { StorageStrategyType } from "@/storage/models/storage.model";
 import { Info, MoreVertical, PackageOpen } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 // TODO: Uncomment when status feature is implemented
 // export type StorageCardStatus = "Connected" | "Configured";
@@ -50,6 +51,7 @@ export const StorageCard = ({
   // onRemove,
   // _onDisconnect, // TODO: Uncomment when status feature is implemented
 }: StorageCardProps) => {
+  const { t } = useT("data.storage");
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -110,7 +112,7 @@ export const StorageCard = ({
             {data.provider === "Azure" && (
               <img
                 src="/assets/images/azure.png"
-                alt="Azure"
+                alt={t("STORAGE_CARD.AZURE")}
                 width={20}
                 height={20}
                 className="h-5 w-5 object-contain"
@@ -122,7 +124,7 @@ export const StorageCard = ({
             {data.provider === "S3Compatible" && (
               <img
                 src="/assets/images/amazon.png"
-                alt="AWS S3 Compatible"
+                alt={t("STORAGE_CARD.AWS_S3_COMPATIBLE")}
                 width={20}
                 height={20}
                 className="h-5 w-5 object-contain"
@@ -158,7 +160,7 @@ export const StorageCard = ({
               className="cursor-pointer"
             >
               <Info className="mr-2 h-4 w-4" />
-              View Details
+              {t("STORAGE_CARD.VIEW_DETAILS")}
             </DropdownMenuItem>
             {/* <DropdownMenuItem
               onClick={handleRemoveOrDisconnect}

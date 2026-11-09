@@ -48,4 +48,37 @@ describe("GraphLogService", () => {
       `${GRAPH_LOG_ENDPOINTS.ANALYTICS}?From=2026-09-02&To=2026-09-09&UtcOffsetMinutes=360&Granularity=daily&IncludeBlocksConsole=true`,
     );
   });
+
+  it("sends the transport filter to history and analytics when one is chosen", async () => {
+    vi.mocked(http.get).mockResolvedValue({ isSuccess: true, data: {} });
+
+    await graphLogService.getHistory({
+      from: "2026-09-01",
+      to: "2026-09-08",
+      utcOffsetMinutes: 360,
+      pageNo: 1,
+      pageSize: 10,
+      transport: "rest",
+      includeBlocksConsole: false,
+      sortBy: "time",
+      sortDescending: true,
+    });
+    await graphLogService.getAnalytics({
+      from: "2026-09-02",
+      to: "2026-09-09",
+      utcOffsetMinutes: 360,
+      granularity: "daily",
+      transport: "graphql",
+      includeBlocksConsole: false,
+    });
+
+    expect(http.get).toHaveBeenNthCalledWith(
+      1,
+      `${GRAPH_LOG_ENDPOINTS.HISTORY}?PageNo=1&PageSize=10&From=2026-09-01&To=2026-09-08&UtcOffsetMinutes=360&Transport=rest&IncludeBlocksConsole=false&SortBy=time&SortDescending=true`,
+    );
+    expect(http.get).toHaveBeenNthCalledWith(
+      2,
+      `${GRAPH_LOG_ENDPOINTS.ANALYTICS}?From=2026-09-02&To=2026-09-09&UtcOffsetMinutes=360&Granularity=daily&Transport=graphql&IncludeBlocksConsole=false`,
+    );
+  });
 });

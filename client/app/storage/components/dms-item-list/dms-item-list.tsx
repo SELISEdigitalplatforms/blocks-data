@@ -4,6 +4,7 @@ import { File as FileIcon, Folder as DirectoryIcon } from "lucide-react";
 import { ReactNode } from "react";
 import { DmsItem } from "../../models/dms.model";
 import { formatSize } from "../../utils/format-size";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export interface DmsItemListProps {
   items: DmsItem[];
@@ -39,8 +40,9 @@ export function DmsItemList({
   onLoadMore,
   onOpen,
   renderActions,
-  emptyMessage = "Nothing here.",
+  emptyMessage = tStatic("data.storage", "DMS_ITEM_LIST.NOTHING_HERE"),
 }: Readonly<DmsItemListProps>) {
+  const { t } = useT("data.storage");
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2" data-testid="dms-item-list-loading">
@@ -81,7 +83,7 @@ export function DmsItemList({
               )}
 
               <span className="shrink-0 text-xs text-muted-foreground">
-                {isDirectory ? "Directory" : formatSize((item as { sizeInBytes?: number }).sizeInBytes)}
+                {isDirectory ? t("DMS_ITEM_LIST.DIRECTORY") : formatSize((item as { sizeInBytes?: number }).sizeInBytes)}
               </span>
 
               {renderActions ? <span className="shrink-0">{renderActions(item)}</span> : null}
@@ -97,7 +99,7 @@ export function DmsItemList({
           disabled={isFetchingNextPage}
           className="self-center"
         >
-          {isFetchingNextPage ? "Loading..." : "Load more"}
+          {isFetchingNextPage ? t("common:LOADING") : t("DMS_ITEM_LIST.LOAD_MORE")}
         </Button>
       ) : null}
     </div>

@@ -3,6 +3,9 @@ namespace DataGateway.DomainService.Models;
 public class GetGraphLogHistoryRequest : BasePaginationRequest
 {
     public string? SchemaName { get; set; }
+
+    /// <summary>"rest" or "graphql" (case-insensitive). Entries with no recorded transport count as GraphQL.</summary>
+    public string? Transport { get; set; }
     public string? EntityName { get; set; }
     public string? OperationType { get; set; }
     public string? ResponseStatus { get; set; }

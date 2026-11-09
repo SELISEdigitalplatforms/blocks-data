@@ -6,6 +6,7 @@ import { useProjectStore } from "@/store/use-project-store";
 import { Pagination } from "@/components/ui-kits/pagination/pagination";
 import { parseAsInteger, useQueryStates } from "nuqs";
 import { Accordion, AccordionItem } from "@/components/ui-kits/accordion/accordion";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const ServiceListSkeleton = () => (
   <div className="grid gap-4">
@@ -21,16 +22,19 @@ const ServiceListSkeleton = () => (
   </div>
 );
 
-const EmptyServiceList = () => (
+const EmptyServiceList = () => {
+  const { t } = useT("data.console");
+  return (
   <Card className="p-8 text-center">
     <CardContent>
       <div className="text-muted-foreground">
-        <p className="mb-2 text-lg font-medium">No services found</p>
-        <p className="text-sm">Register your first service to get started</p>
+        <p className="mb-2 text-lg font-medium">{t("SERVICE_LIST.NO_SERVICES_FOUND")}</p>
+        <p className="text-sm">{t("SERVICE_LIST.REGISTER_YOUR_FIRST_SERVICE_TO_GET")}</p>
       </div>
     </CardContent>
   </Card>
 );
+};
 
 export const ServiceList = () => {
   const [queryParams, setQueryParams] = useQueryStates({

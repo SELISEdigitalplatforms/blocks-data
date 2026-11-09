@@ -13,8 +13,10 @@ import { RoleDetailsProvider, useRoleDetailsStore } from "./role-details-state";
 import { PermissionSeverity } from "@blocks-idp/iam/components/permission-severity/permission-severity";
 import { useQueryClient } from "@tanstack/react-query";
 import { PermissionsSelectionPanel } from "./permissions-selection-panel";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function RoleDetailsContainer() {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const queryClient = useQueryClient();
 
@@ -26,7 +28,7 @@ export function RoleDetailsContainer() {
   const permissionMap = useRoleDetailsStore((state) => state.permissionMap);
   const { isPending, mutateAsync } = useSetRoles(role?.slug);
 
-  setBreadcrumbTitle("/services/iam/role-detail", "Roles");
+  setBreadcrumbTitle("/services/iam/role-detail", t("ROLE_DETAILS.ROLES"));
   setBreadcrumbTitle("/services/iam/role-detail/" + role?.itemId, role?.name || "");
 
   const onSaveClick = async () => {
@@ -54,7 +56,7 @@ export function RoleDetailsContainer() {
         projectKey: tenantId,
         slug: role.slug,
       });
-      showSuccessToast({ description: "Role permissions updated successfully" });
+      showSuccessToast({ description: t("ROLE_DETAILS.ROLE_PERMISSIONS_UPDATED_SUCCESSFULLY") });
       queryClient.invalidateQueries({ queryKey: ["permissions"] });
     } catch (error) {
       if (error && typeof error === "object" && "errors" in error) {
@@ -105,16 +107,16 @@ export function RoleDetailsContainer() {
           <div className="flex items-center gap-2">
             {!isEditMode && (
               <Button variant="outline" onClick={() => changeEditMode(true)}>
-                <span>Edit Permissions</span>
+                <span>{t("ROLE_DETAILS.EDIT_PERMISSIONS")}</span>
               </Button>
             )}
             {isEditMode && (
               <>
                 <Button variant="outline" disabled={isPending} onClick={() => discardChanges()}>
-                  <span>Discard</span>
+                  <span>{t("ROLE_DETAILS.DISCARD")}</span>
                 </Button>
                 <Button disabled={isPending || !isInitialized} onClick={onSaveClick}>
-                  <span>Save Changes</span>
+                  <span>{t("ROLE_DETAILS.SAVE_CHANGES")}</span>
                 </Button>
               </>
             )}

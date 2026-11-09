@@ -18,6 +18,9 @@ import {
   GEOJSON_SAMPLE_VALUE,
 } from "./graphql-constants";
 import type { TemplateSection } from "../models/schema-preview.types";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 const MAX_NESTING_DEPTH = 30;
 
@@ -433,50 +436,50 @@ interface OperationDescriptor {
 
 const OPERATION_DESCRIPTORS: OperationDescriptor[] = [
   {
-    title: "Query",
-    description: "Fetch data from the schema",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.QUERY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.FETCH_DATA_FROM_THE_SCHEMA"); },
     prefix: "get",
     suffix: "s",
     type: "query",
   },
   {
-    title: "Insert",
-    description: "Add new entries to the schema",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.INSERT"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.ADD_NEW_ENTRIES_TO_THE_SCHEMA"); },
     prefix: "insert",
     suffix: "",
     type: "mutation",
   },
   {
-    title: "Insert Many",
-    description: "Add multiple entries at once",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.INSERT_MANY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.ADD_MULTIPLE_ENTRIES_AT_ONCE"); },
     prefix: "insertMany",
     suffix: "",
     type: "mutation",
   },
   {
-    title: "Update",
-    description: "Modify existing entries",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:UPDATE"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.MODIFY_EXISTING_ENTRIES"); },
     prefix: "update",
     suffix: "",
     type: "mutation",
   },
   {
-    title: "Update Many",
-    description: "Modify multiple entries at once",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.UPDATE_MANY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.MODIFY_MULTIPLE_ENTRIES_AT_ONCE"); },
     prefix: "updateMany",
     suffix: "",
     type: "mutation",
   },
   {
-    title: "Delete",
-    description: "Remove entries from the schema",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:DELETE"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.REMOVE_ENTRIES_FROM_THE_SCHEMA"); },
     prefix: "delete",
     suffix: "",
     type: "mutation",
   },
   {
-    title: "Delete Many",
-    description: "Remove multiple entries from the schema",
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.DELETE_MANY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.REMOVE_MULTIPLE_ENTRIES_FROM_THE"); },
     prefix: "deleteMany",
     suffix: "",
     type: "mutation",

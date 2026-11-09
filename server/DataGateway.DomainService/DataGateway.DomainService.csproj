@@ -2,8 +2,6 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
-    <PackageReference Include="HotChocolate.AspNetCore" />
-    <PackageReference Include="HotChocolate.Types" />
     <PackageReference Include="KubernetesClient" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="SeliseBlocks.Genesis.OS" />
@@ -18,6 +16,8 @@
   <ItemGroup>
     <!-- The unit tests cover a few internal helpers directly (e.g. introspection detection). -->
     <InternalsVisibleTo Include="XUnitTest" />
+    <!-- The temporary GraphQL project keeps test forwarders to a few internal engine members. Removed with it. -->
+    <InternalsVisibleTo Include="DataGateway.GraphQL" />
   </ItemGroup>
 
 </Project>

@@ -13,6 +13,7 @@ class GraphLogService {
     if (payload.to) params.set("To", payload.to);
     params.set("UtcOffsetMinutes", String(payload.utcOffsetMinutes));
     params.set("Granularity", payload.granularity);
+    if (payload.transport) params.set("Transport", payload.transport);
     params.set("IncludeBlocksConsole", String(payload.includeBlocksConsole));
 
     return http.get(`${GRAPH_LOG_ENDPOINTS.ANALYTICS}?${params.toString()}`);
@@ -30,6 +31,7 @@ class GraphLogService {
     if (payload.outcome) params.set("Outcome", payload.outcome);
     if (payload.statusCode) params.set("StatusCode", String(payload.statusCode));
     if (payload.failureKind) params.set("FailureKind", payload.failureKind);
+    if (payload.transport) params.set("Transport", payload.transport);
     params.set("IncludeBlocksConsole", String(payload.includeBlocksConsole));
     params.set("SortBy", payload.sortBy);
     params.set("SortDescending", String(payload.sortDescending));

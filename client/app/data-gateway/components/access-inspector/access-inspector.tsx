@@ -9,6 +9,7 @@ import {
   type AccessInspectorPanelHandle,
   type AccessInspectorPanelProps,
 } from "./access-inspector-panel";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface AccessInspectorTarget
   extends Omit<AccessInspectorPanelProps, "onRuleEditorOpenChange"> {
@@ -38,16 +39,17 @@ export const AccessInspector = forwardRef<
     onClose: () => void;
   }
 >(function AccessInspector({ target, onRuleEditorOpenChange, onClose }, ref) {
+  const { t } = useT("data.gateway.access");
   const { subject, context, ...panelProps } = target;
 
   return (
-    <PanelShell label={`Access for ${subject}`}>
+    <PanelShell label={t("ACCESS_INSPECTOR.ACCESS_FOR_SUBJECT", { subject })}>
       <PanelHeader
         icon={Shield}
         title={subject}
         subtitle={context}
         onClose={onClose}
-        closeLabel="Close access inspector"
+        closeLabel={t("ACCESS_INSPECTOR.CLOSE_ACCESS_INSPECTOR")}
       />
       <AccessInspectorPanel
         ref={ref}

@@ -1,4 +1,9 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 export type GraphLogOperationType = "query" | "mutation";
+/** How a request reached the gateway; a log entry with no recorded transport is GraphQL. */
+export type GraphLogTransport = "rest" | "graphql";
 export type GraphLogResponseStatus = "success" | "failed";
 export type GraphLogOutcome = "allowed" | "denied" | "error";
 export type GraphLogHistorySort =
@@ -16,13 +21,13 @@ export type GraphLogFailureKind =
 
 /** Reader-facing names for each failure reason, used by the table, filter and details panel. */
 export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
-  authentication: "Authentication",
-  authorization: "Authorization",
-  validation: "Validation",
-  syntax_error: "Syntax error",
-  bad_request: "Bad request",
-  unhandled: "Server error",
-  unknown: "Others",
+  get authentication() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.AUTHENTICATION"); },
+  get authorization() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.AUTHORIZATION"); },
+  get validation() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.VALIDATION"); },
+  get syntax_error() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.SYNTAX_ERROR"); },
+  get bad_request() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.BAD_REQUEST"); },
+  get unhandled() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.SERVER_ERROR"); },
+  get unknown() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.OTHERS"); },
 };
 
 export const failureKindLabel = (failureKind: string) =>
@@ -50,6 +55,7 @@ export interface IGetGraphLogHistoryPayload {
   pageSize: number;
   schemaName?: string;
   operationType?: GraphLogOperationType;
+  transport?: GraphLogTransport;
   outcome?: GraphLogOutcome;
   statusCode?: number;
   failureKind?: GraphLogFailureKind;
@@ -58,7 +64,7 @@ export interface IGetGraphLogHistoryPayload {
   sortDescending: boolean;
 }
 
-/** One GraphQL request, as recorded in the trace store. */
+/** One gateway request (REST or GraphQL), as recorded in the trace store. */
 export interface IGraphLogHistoryItem {
   traceId: string;
   spanId: string;
@@ -73,6 +79,9 @@ export interface IGraphLogHistoryItem {
   entityName: string;
   collectionName: string;
   operationType: string;
+  /** "rest" or "graphql". */
+  transport: GraphLogTransport;
+  /** The request text: the GraphQL query for GraphQL rows, the REST request line for REST rows. */
   operationQuery: string;
   mongoQuery: string;
   responseStatus: string;

@@ -19,6 +19,7 @@ import ExportSchemaModal from "./export-schema/export-schema-modal";
 import ImportSchemaModal from "./import-schema-modal";
 import { useGetDataServiceConfiguration } from "../hooks/use-configuration";
 import { IDataSourceResponse } from "../models/data-service";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const GraphQLIcon = ({ className }: { className?: string }) => (
   <svg
@@ -47,6 +48,7 @@ export interface DataGatewayAction {
 const inlineButtonClass = "gap-2 px-4 border-border/40 transition-colors";
 
 export const DataGatewayActions = () => {
+  const { t } = useT("data.gateway.schema");
   const navigate = useNavigate();
   const location = useLocation();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -68,13 +70,13 @@ export const DataGatewayActions = () => {
   // Playground is the action people reach for most.
   const INLINE_ACTIONS: DataGatewayAction[] = [
     {
-      label: "API Docs",
+      label: t("DATA_GATEWAY_ACTIONS.API_DOCS"),
       icon: <BookOpen className="h-4 w-4" />,
       onClick: () =>
         window.open(`${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`, "_blank"),
     },
     {
-      label: "Playground",
+      label: t("DATA_GATEWAY_ACTIONS.PLAYGROUND"),
       icon: <GraphQLIcon className="h-4 w-4" />,
       onClick: () => navigate(`${dataGatewayPath}/playground`),
       active: isPlayground,
@@ -84,7 +86,7 @@ export const DataGatewayActions = () => {
   // Everything else lives behind the overflow menu, on every screen size.
   const OVERFLOW_ACTIONS: DataGatewayAction[] = [
     {
-      label: "Import",
+      label: t("DATA_GATEWAY_ACTIONS.IMPORT"),
       icon: <FolderInput className="h-4 w-4" />,
       onClick: () => {
         setImportModalInstance((n) => n + 1);
@@ -92,14 +94,14 @@ export const DataGatewayActions = () => {
       },
     },
     {
-      label: "Export",
+      label: t("DATA_GATEWAY_ACTIONS.EXPORT"),
       icon: <Download className="h-4 w-4" />,
       onClick: () => setIsExportModalOpen(true),
     },
     ...(analyticsEnabled
       ? [
           {
-            label: "Analytics",
+            label: t("DATA_GATEWAY_ACTIONS.ANALYTICS"),
             icon: <BarChart3 className="h-4 w-4" />,
             onClick: () => navigate(`${dataGatewayPath}/analytics`),
             active: isAnalytics,
@@ -107,7 +109,7 @@ export const DataGatewayActions = () => {
         ]
       : []),
     {
-      label: "Configure",
+      label: t("DATA_GATEWAY_ACTIONS.CONFIGURE"),
       icon: <Settings className="h-4 w-4" />,
       onClick: () => window.open(osConfigUrl, "_blank"),
     },
@@ -146,7 +148,7 @@ export const DataGatewayActions = () => {
         {/* Mobile: every action collapsed into one menu */}
         <div className="xl:hidden">
           <DropdownMenu>
-            {menuTrigger("Actions")}
+            {menuTrigger(t("common:ACTIONS"))}
             <DropdownMenuContent align="end" className="w-48">
               {renderMenuItems(mobileMenuActions)}
             </DropdownMenuContent>
@@ -174,7 +176,7 @@ export const DataGatewayActions = () => {
           ))}
 
           <DropdownMenu>
-            {menuTrigger("More actions")}
+            {menuTrigger(t("DATA_GATEWAY_ACTIONS.MORE_ACTIONS"))}
             <DropdownMenuContent align="end" className="w-48">
               {renderMenuItems(OVERFLOW_ACTIONS)}
             </DropdownMenuContent>

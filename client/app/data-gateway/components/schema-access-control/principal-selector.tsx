@@ -16,15 +16,18 @@ import {
   type PrincipalOption,
   type UserPrincipalValue,
 } from "@/data-gateway/hooks/use-principal-options";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
 
 export const PRINCIPAL_MESSAGES = {
-  MISSING_TENANT: "Select a project before loading roles or users.",
-  FORBIDDEN: "You do not have permission to view tenant roles or users.",
-  ROLES_FAILED: "Roles could not be loaded.",
-  USERS_FAILED: "Users could not be loaded.",
-  NO_ROLES: "No roles found.",
-  NO_USERS: "No users found.",
-  UNAVAILABLE: "Unavailable",
+  get MISSING_TENANT() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.SELECT_A_PROJECT_BEFORE_LOADING_ROLES"); },
+  get FORBIDDEN() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.YOU_DO_NOT_HAVE_PERMISSION_TO"); },
+  get ROLES_FAILED() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.ROLES_COULD_NOT_BE_LOADED"); },
+  get USERS_FAILED() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.USERS_COULD_NOT_BE_LOADED"); },
+  get NO_ROLES() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.NO_ROLES_FOUND"); },
+  get NO_USERS() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.NO_USERS_FOUND"); },
+  get UNAVAILABLE() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.UNAVAILABLE"); },
 } as const;
 
 interface PrincipalSelectorProps {
@@ -48,6 +51,29 @@ const splitValue = (value: string): string[] =>
     .map((v) => v.trim())
     .filter(Boolean);
 
+/** The stored value as a list: comma-separated when several are allowed, else the one trimmed value. */
+const selectedValuesOf = (value: string, multiple: boolean | undefined): string[] => {
+  if (multiple) return splitValue(value);
+  const single = value.trim();
+  return single ? [single] : [];
+};
+
+type BrowseState = "forbidden" | "error" | "loading" | "empty" | "list";
+
+const browseStateOf = (browse: ReturnType<typeof usePrincipalOptions>): BrowseState => {
+  if (browse.isForbidden) return "forbidden";
+  if (browse.error) return "error";
+  if (browse.isLoading) return "loading";
+  if (browse.options.length === 0) return "empty";
+  return "list";
+};
+
+/** Text keys that differ between picking roles and picking users. */
+const ENTITY_KEYS: Record<PrincipalEntity, { select: string; search: string }> = {
+  role: { select: "PRINCIPAL_SELECTOR.SELECT_ROLE", search: "PRINCIPAL_SELECTOR.SEARCH_ROLES" },
+  user: { select: "PRINCIPAL_SELECTOR.SELECT_USER", search: "PRINCIPAL_SELECTOR.SEARCH_USERS" },
+};
+
 /**
  * Inner selector. Remounted per tenant by the exported wrapper, so obsolete options cannot be
  * rendered even for the single commit before an effect could clear them.
@@ -61,11 +87,12 @@ const PrincipalSelectorInner = ({
   userValueField,
   variant = "field",
 }: PrincipalSelectorProps) => {
+  const { t } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const isChip = variant === "chip";
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const selectedValues = multiple ? splitValue(value) : value.trim() ? [value.trim()] : [];
+  const selectedValues = selectedValuesOf(value, multiple);
 
   // Browsing is gated on the popover; resolving what is already stored is NOT - a closed selector
   // still has to show its labels and any Unavailable marker.
@@ -123,11 +150,10 @@ const PrincipalSelectorInner = ({
     );
   }
 
-  const triggerLabel = selectedValues.length
-    ? selectedValues.map(labelFor).join(", ")
-    : entity === "role"
-      ? "Select role"
-      : "Select user";
+  const emptyTriggerLabel = t(ENTITY_KEYS[entity].select);
+  const triggerLabel = selectedValues.length ? selectedValues.map(labelFor).join(", ") : emptyTriggerLabel;
+
+  const browseState = browseStateOf(browse);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -146,7 +172,7 @@ const PrincipalSelectorInner = ({
             )}
           >
             <span className="block truncate">
-              {selectedValues.length ? triggerLabel : "Not set"}
+              {selectedValues.length ? triggerLabel : t("PRINCIPAL_SELECTOR.NOT_SET")}
             </span>
           </button>
         ) : (
@@ -176,29 +202,33 @@ const PrincipalSelectorInner = ({
         <div className="border-b p-2">
           <Input
             className={cn("h-8", isChip && "text-xs")}
-            placeholder={entity === "role" ? "Search roles" : "Search users"}
+            placeholder={t(ENTITY_KEYS[entity].search)}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <Command shouldFilter={false}>
           <CommandList>
-            {browse.isForbidden ? (
+            {browseState === "forbidden" && (
               <div className="p-3 text-sm text-destructive">{PRINCIPAL_MESSAGES.FORBIDDEN}</div>
-            ) : browse.error ? (
+            )}
+            {browseState === "error" && (
               <div className="flex items-center justify-between gap-2 p-3 text-sm text-destructive">
                 <span>{failedMessage}</span>
                 <button type="button" className="underline" onClick={() => browse.refetch()}>
-                  Retry
+                  {t("common:RETRY")}
                 </button>
               </div>
-            ) : browse.isLoading ? (
+            )}
+            {browseState === "loading" && (
               <div className="p-3 text-sm text-muted-foreground" aria-busy="true">
-                Loading…
+                {t("PRINCIPAL_SELECTOR.LOADING")}
               </div>
-            ) : browse.options.length === 0 ? (
+            )}
+            {browseState === "empty" && (
               <div className="p-3 text-sm text-muted-foreground">{emptyMessage}</div>
-            ) : (
+            )}
+            {browseState === "list" && (
               <CommandGroup>
                 {browse.options.map((option) => {
                   const isSelected = selectedValues.includes(option.value);
@@ -214,7 +244,7 @@ const PrincipalSelectorInner = ({
                         <Checkbox
                           checked={isSelected}
                           tabIndex={-1}
-                          aria-label={`${isSelected ? "Deselect" : "Select"} ${option.primaryLabel}`}
+                          aria-label={t(isSelected ? "PRINCIPAL_SELECTOR.DESELECT_OPTION" : "PRINCIPAL_SELECTOR.SELECT_OPTION", { label: option.primaryLabel })}
                           className="pointer-events-none mr-2 shrink-0"
                         />
                       )}
@@ -233,7 +263,7 @@ const PrincipalSelectorInner = ({
                     value="__load_more__"
                     onSelect={() => browse.fetchNextPage()}
                   >
-                    {browse.isFetchingNextPage ? "Loading…" : "Load more"}
+                    {browse.isFetchingNextPage ? "Loading…" : t("PRINCIPAL_SELECTOR.LOAD_MORE")}
                   </CommandItem>
                 )}
               </CommandGroup>

@@ -26,6 +26,9 @@ import {
 import useIsMobile from "@/hooks/use-is-mobile";
 import { cn } from "@/lib/utils";
 import { formatCalendarDate } from "./graph-log-formatters";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
 
 /** A complete, calendar-day range: both ends are local midnights. */
 export type AnalyticsDateRange = { from: Date; to: Date };
@@ -33,14 +36,14 @@ export type AnalyticsDateRange = { from: Date; to: Date };
 type Preset = { label: string; range: (today: Date) => AnalyticsDateRange };
 
 export const DATE_RANGE_PRESETS: Preset[] = [
-  { label: "Today", range: (today) => ({ from: today, to: today }) },
-  { label: "Yesterday", range: (today) => ({ from: subDays(today, 1), to: subDays(today, 1) }) },
-  { label: "Last 7 days", range: (today) => ({ from: subDays(today, 6), to: today }) },
-  { label: "Last 30 days", range: (today) => ({ from: subDays(today, 29), to: today }) },
-  { label: "Last 90 days", range: (today) => ({ from: subDays(today, 89), to: today }) },
-  { label: "This month", range: (today) => ({ from: startOfMonth(today), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.TODAY"); }, range: (today) => ({ from: today, to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.YESTERDAY"); }, range: (today) => ({ from: subDays(today, 1), to: subDays(today, 1) }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_7_DAYS"); }, range: (today) => ({ from: subDays(today, 6), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_30_DAYS"); }, range: (today) => ({ from: subDays(today, 29), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_90_DAYS"); }, range: (today) => ({ from: subDays(today, 89), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.THIS_MONTH"); }, range: (today) => ({ from: startOfMonth(today), to: today }) },
   {
-    label: "Last month",
+    get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_MONTH"); },
     range: (today) => {
       const lastMonth = subMonths(today, 1);
       return { from: startOfMonth(lastMonth), to: startOfDay(endOfMonth(lastMonth)) };
@@ -74,6 +77,7 @@ interface AnalyticsDateRangePickerProps {
  * calendar always starts a new range rather than nudging the nearest end of the old one.
  */
 export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRangePickerProps) {
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const isMobile = useIsMobile();
   const numberOfMonths = isMobile ? 1 : 2;
   const today = startOfDay(new Date());
@@ -121,11 +125,10 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
   };
 
   const years = Array.from({ length: YEARS_BACK + 1 }, (_, i) => today.getFullYear() - i);
-  const draftLabel = draft?.from
-    ? draft.to
-      ? formatRangeLabel({ from: draft.from, to: draft.to })
-      : `${formatCalendarDate(draft.from)} – pick an end date`
-    : "Pick a start date";
+  const pendingEndLabel = draft?.from
+    ? t("ANALYTICS_DATE_RANGE_PICKER.PICK_AN_END_DATE", { date: formatCalendarDate(draft.from) })
+    : t("ANALYTICS_DATE_RANGE_PICKER.PICK_A_START_DATE");
+  const draftLabel = draft?.from && draft.to ? formatRangeLabel({ from: draft.from, to: draft.to }) : pendingEndLabel;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -134,7 +137,7 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
           variant="outline"
           size="sm"
           className="h-8 gap-2 text-xs font-normal"
-          aria-label={`Date range: ${formatRangeLabel(value)}`}
+          aria-label={t("ANALYTICS_DATE_RANGE_PICKER.DATE_RANGE_LABEL", { range: formatRangeLabel(value) })}
         >
           <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           {activePreset && <span className="text-muted-foreground">{activePreset.label}:</span>}
@@ -144,10 +147,9 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
         <div className="flex flex-col sm:flex-row">
-          <div
+          <fieldset
             className="flex flex-row flex-wrap gap-1 border-b border-border/40 p-2 sm:w-36 sm:flex-col sm:flex-nowrap sm:border-b-0 sm:border-r"
-            role="group"
-            aria-label="Quick ranges"
+            aria-label={t("ANALYTICS_DATE_RANGE_PICKER.QUICK_RANGES")}
           >
             {DATE_RANGE_PRESETS.map((preset) => (
               <Button
@@ -165,18 +167,18 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
                 {preset.label}
               </Button>
             ))}
-          </div>
+          </fieldset>
 
           <div className="flex flex-col">
             <div className="flex items-center gap-2 px-3 pt-3">
-              <span className="text-xs text-muted-foreground">Jump to</span>
+              <span className="text-xs text-muted-foreground">{t("ANALYTICS_DATE_RANGE_PICKER.JUMP_TO")}</span>
               <Select
                 value={String(month.getMonth())}
                 onValueChange={(m) =>
                   setMonth(clampMonth(new Date(month.getFullYear(), Number(m), 1)))
                 }
               >
-                <SelectTrigger className="h-7 w-[120px] text-xs" aria-label="Month">
+                <SelectTrigger className="h-7 w-[120px] text-xs" aria-label={t("ANALYTICS_DATE_RANGE_PICKER.MONTH")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -191,7 +193,7 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
                 value={String(month.getFullYear())}
                 onValueChange={(y) => setMonth(clampMonth(new Date(Number(y), month.getMonth(), 1)))}
               >
-                <SelectTrigger className="h-7 w-[84px] text-xs" aria-label="Year">
+                <SelectTrigger className="h-7 w-[84px] text-xs" aria-label={t("ANALYTICS_DATE_RANGE_PICKER.YEAR")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -222,10 +224,10 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
               </span>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
                 <Button type="button" size="sm" disabled={!draft?.from} onClick={applyDraft}>
-                  Apply
+                  {t("common:APPLY")}
                 </Button>
               </div>
             </div>

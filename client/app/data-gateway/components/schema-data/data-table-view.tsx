@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/to
 import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button/copy-to-clipboard-button";
 import { EyeOff } from "lucide-react";
 import { readonlyPropertyNames } from "../../constants/input-restrictions";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface DataTableViewProps {
   data: Record<string, unknown>[];
@@ -32,6 +33,7 @@ function truncateTooltip(text: string): string {
 }
 
 export function DataTableView({ data, piiFields }: DataTableViewProps) {
+  const { t } = useT("data.gateway.schema");
   const rawColumns = data.length > 0 ? Object.keys(data[0]) : [];
   const columns = [
     ...rawColumns.filter((c) => c === "ItemId"),
@@ -57,7 +59,7 @@ export function DataTableView({ data, piiFields }: DataTableViewProps) {
                       <TooltipTrigger asChild>
                         <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       </TooltipTrigger>
-                      <TooltipContent>PII — data is masked</TooltipContent>
+                      <TooltipContent>{t("DATA_TABLE_VIEW.PII_DATA_IS_MASKED")}</TooltipContent>
                     </Tooltip>
                   )}
                 </span>
@@ -80,7 +82,7 @@ export function DataTableView({ data, piiFields }: DataTableViewProps) {
                             <EyeOff className="h-3.5 w-3.5 shrink-0 cursor-default" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            This field contains personally identifiable information and is masked
+                            {t("DATA_TABLE_VIEW.THIS_FIELD_CONTAINS_PERSONALLY")}
                           </TooltipContent>
                         </Tooltip>
                       </span>

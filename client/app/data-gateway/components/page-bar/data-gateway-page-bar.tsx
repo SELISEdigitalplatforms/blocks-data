@@ -5,6 +5,7 @@ import { DataGatewaySections } from "./data-gateway-sections";
 import { DataGatewayUtilities } from "./data-gateway-utilities";
 import { EndpointChip } from "./endpoint-chip";
 import { PublishControl } from "./publish-control";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * One bar for every Data Gateway section.
@@ -14,7 +15,9 @@ import { PublishControl } from "./publish-control";
  * slightly different ways and Publish only existed on one of them. This is that
  * header, once: identity, sections and state all on the one row.
  */
-export const DataGatewayPageBar = () => (
+export const DataGatewayPageBar = () => {
+  const { t } = useT("data.gateway.schema");
+  return (
   <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 border-b border-border/50 lg:h-[52px] lg:flex-nowrap lg:items-stretch">
     {/* Fixed, on large screens, to the Schemas tab's own explorer width minus
         this row's own gap — added back by that gap, it comes out to the same
@@ -25,7 +28,7 @@ export const DataGatewayPageBar = () => (
       style={{ "--dg-title-w": `${SHELL.explorerWidth - 12}px` } as React.CSSProperties}
       className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 lg:w-(--dg-title-w) lg:flex-none lg:shrink-0"
     >
-      <h1 className="text-base font-semibold tracking-tight text-foreground">Data Gateway</h1>
+      <h1 className="text-base font-semibold tracking-tight text-foreground">{t("DATA_GATEWAY_PAGE_BAR.DATA_GATEWAY")}</h1>
       <span className="hidden min-w-0 lg:block">
         <EndpointChip />
       </span>
@@ -41,3 +44,4 @@ export const DataGatewayPageBar = () => (
     </div>
   </div>
 );
+};

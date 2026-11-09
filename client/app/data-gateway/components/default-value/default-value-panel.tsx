@@ -35,6 +35,9 @@ import {
   type DraftItem,
   type PreviewPiece,
 } from "./default-value-fields";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
 
 export interface DefaultValuePanelProps {
   /** The property; a nested one by its full dotted path, e.g. Read.Roles. */
@@ -51,28 +54,28 @@ export interface DefaultValuePanelProps {
 
 /** One line under the value box saying what it takes. */
 function hintFor(fieldType: string, useNow: boolean): string {
-  if (useNow) return "Stored in UTC. Records created together in one bulk insert all get the same date and time.";
+  if (useNow) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.STORED_IN_UTC_RECORDS_CREATED_TOGETHER");
   switch (fieldType) {
     case "String":
     case "ID":
-      return "Type fixed text, add expressions filled at insert time, or mix them. A missing value becomes empty text.";
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.TYPE_FIXED_TEXT_ADD_EXPRESSIONS_FILLED");
     case "DateTime":
-      return "Pick a fixed date (UTC), or use Expression to fill in the current date and time when each record is created.";
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.PICK_A_FIXED_DATE_UTC_OR");
     case "Enum":
-      return "One of the allowed values. Pick it again to clear.";
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.ONE_OF_THE_ALLOWED_VALUES_PICK");
     case "Boolean":
-      return "Pick true or false. Pick it again to clear.";
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.PICK_TRUE_OR_FALSE_PICK_IT");
     default:
-      return "Stored exactly as entered.";
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.STORED_EXACTLY_AS_ENTERED");
   }
 }
 
 /** What the box shows before anything is typed. */
 function placeholderFor(fieldType: string, fieldName: string): string {
-  if (canUseExpressions(fieldType)) return "Type text, or add an expression";
+  if (canUseExpressions(fieldType)) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.TYPE_TEXT_OR_ADD_AN_EXPRESSION");
   if (fieldType === "Int") return "e.g. 1";
   if (fieldType === "Float") return "e.g. 0.5";
-  return fieldType === "DateTime" ? "" : `Stored when ${fieldName} is omitted`;
+  return fieldType === "DateTime" ? "" : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.STORED_WHEN_FIELDNAME_IS_OMITTED", { fieldName });
 }
 
 /** An `HttpError` from the client: its status and the response body (or the body's `errors`). */
@@ -84,7 +87,7 @@ const asHttpError = (error: unknown): { status: number; errors: Record<string, u
 /** The server's reason for a refusal: the response's message, else its errors. */
 function serverMessage(error: unknown): string {
   const http = asHttpError(error);
-  if (!http) return "Something went wrong.";
+  if (!http) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.SOMETHING_WENT_WRONG");
   if (typeof http.errors?.message === "string" && http.errors.message) return expressionWording(http.errors.message);
   const messages = handleErrorMessages(http.errors);
   return expressionWording(Array.isArray(messages) ? messages.join(" ") : messages);
@@ -148,11 +151,11 @@ function previewOf(draft: DefaultDraft, target: DefaultTarget, fieldName: string
     const o = defaultFromDraft(draft, target).offset ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
     const ms = (o.days * 86400 + o.hours * 3600 + o.minutes * 60 + o.seconds) * 1000;
     const when = Number.isFinite(ms) ? `${new Date(Date.now() + ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : "—";
-    return { pieces: [text(when)], caption: "for a record created right now" };
+    return { pieces: [text(when)], caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.FOR_A_RECORD_CREATED_RIGHT_NOW") };
   }
   const items = target.isArray ? draft.items.filter((t) => t.trim() !== "") : draft.items.slice(0, 1);
   if (items.every((t) => t.trim() === "")) {
-    return { pieces: [muted("—")], caption: `when an insert leaves ${fieldName} out` };
+    return { pieces: [muted("—")], caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.WHEN_AN_INSERT_LEAVES_FIELDNAME_OUT", { fieldName }) };
   }
   if (kind === "Template") {
     const pieces: PreviewPiece[] = [];
@@ -162,13 +165,13 @@ function previewOf(draft: DefaultDraft, target: DefaultTarget, fieldName: string
       }
       if (target.isArray && index < items.length - 1) pieces.push(muted(","));
     });
-    return { pieces, caption: "filled in at insert time" };
+    return { pieces, caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.FILLED_IN_AT_INSERT_TIME") };
   }
   const quote = (t: string) => (target.fieldType === "String" ? JSON.stringify(t.trim()) : t.trim());
   const values = items.map((t) => text(quote(t)));
   return {
     pieces: target.isArray ? [muted("["), ...values, muted("]")] : values,
-    caption: `when an insert leaves ${fieldName} out`,
+    caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.WHEN_AN_INSERT_LEAVES_FIELDNAME_OUT", { fieldName }),
   };
 }
 
@@ -187,6 +190,7 @@ export function DefaultValuePanel({
   enumValues = [],
   initialDefault = null,
 }: Readonly<DefaultValuePanelProps>) {
+  const { t: tx } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const nowAllowed = canUseNow(fieldType, isArray);
   // What's stored now: the schema response's value, then whatever this panel last saved.
   const [saved, setSaved] = useState<IFieldDefaultValue | null>(initialDefault);
@@ -225,14 +229,14 @@ export function DefaultValuePanel({
     try {
       const res = await setFieldDefault({ schemaId, fieldName, defaultValue: value, projectKey });
       if (res.isSuccess === false) {
-        setServerError(expressionWording(res.message || "The default could not be saved."));
+        setServerError(expressionWording(res.message || tx("DEFAULT_VALUE_PANEL.THE_DEFAULT_COULD_NOT_BE_SAVED")));
         return;
       }
       setSaved(value);
       setServerError(null);
       setTouched(false);
       if (value === null) editor.reset();
-      setSuccess(value === null ? "Default value cleared" : "Default value saved");
+      setSuccess(value === null ? tx("DEFAULT_VALUE_PANEL.DEFAULT_VALUE_CLEARED") : tx("DEFAULT_VALUE_PANEL.DEFAULT_VALUE_SAVED"));
     } catch (error) {
       if (asHttpError(error)?.status === 400) setServerError(serverMessage(error));
       else setError([serverMessage(error)]);
@@ -255,7 +259,7 @@ export function DefaultValuePanel({
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
-              <span className={LABEL_CLASS}>{isArray ? "Values" : "Value"}</span>
+              <span className={LABEL_CLASS}>{isArray ? tx("DEFAULT_VALUE_PANEL.VALUES") : tx("DEFAULT_VALUE_PANEL.VALUE")}</span>
               {showBadge && <ModeBadge dynamic={kind !== "Static"} />}
             </div>
 
@@ -295,7 +299,7 @@ export function DefaultValuePanel({
 
           <WillStore pieces={preview.pieces} caption={preview.caption} />
 
-          <p className={HINT_CLASS}>Applied on insert and bulk insert when the property is missing or null, before required and validation checks.</p>
+          <p className={HINT_CLASS}>{tx("DEFAULT_VALUE_PANEL.APPLIED_ON_INSERT_AND_BULK_INSERT")}</p>
         </div>
       </ScrollArea>
 
@@ -304,7 +308,7 @@ export function DefaultValuePanel({
         <div className="flex items-center gap-2">
           <span className={cn("flex flex-1 items-center gap-1.5 text-[11px]", isDirty ? "text-amber-500" : "text-muted-foreground")}>
             {isDirty && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-500" />}
-            {isDirty ? "Unsaved · applies from the next publish" : "Applies from the next publish"}
+            {isDirty ? tx("DEFAULT_VALUE_PANEL.UNSAVED_APPLIES_FROM_THE_NEXT_PUBLISH") : tx("DEFAULT_VALUE_PANEL.APPLIES_FROM_THE_NEXT_PUBLISH")}
           </span>
           {saved && (
             <Button
@@ -315,11 +319,11 @@ export function DefaultValuePanel({
               className="text-rose-400 hover:bg-rose-500/10 hover:text-rose-400"
               onClick={() => void save(null)}
             >
-              Clear default
+              {tx("DEFAULT_VALUE_PANEL.CLEAR_DEFAULT")}
             </Button>
           )}
           <Button type="button" size="sm" disabled={!canSave} onClick={handleSave}>
-            {isPending ? "Saving…" : "Save"}
+            {isPending ? "Saving…" : tx("common:SAVE")}
           </Button>
         </div>
       </div>

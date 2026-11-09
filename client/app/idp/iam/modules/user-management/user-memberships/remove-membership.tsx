@@ -12,6 +12,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { useUpdateUser, useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { IMembership } from "@blocks-idp/iam/models/user";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type RemoveMembershipProps = {
     open: boolean;
@@ -32,6 +33,7 @@ export const RemoveMembership = ({
     projectKey,
     onSuccess,
 }: RemoveMembershipProps) => {
+  const { t } = useT("data.idp.iam");
     const { data: userData } = useGetUserById({ id: userId, projectKey });
     const { mutateAsync, isPending } = useUpdateUser({ id: userId, projectKey });
 
@@ -55,14 +57,14 @@ export const RemoveMembership = ({
                 return;
             }
 
-            showSuccessToast({ description: "Organization membership removed successfully" });
+            showSuccessToast({ description: t("REMOVE_MEMBERSHIP.ORGANIZATION_MEMBERSHIP_REMOVED") });
             onOpenChange(false);
             onSuccess?.();
         } catch (error) {
             if (isErrorWithErrors(error)) {
                 showErrorToast({ errors: error.errors });
             } else {
-                showErrorToast({ errors: "Something went wrong" });
+                showErrorToast({ errors: t("REMOVE_MEMBERSHIP.SOMETHING_WENT_WRONG") });
             }
         }
     };
@@ -71,19 +73,18 @@ export const RemoveMembership = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Remove organization membership</DialogTitle>
+                    <DialogTitle>{t("REMOVE_MEMBERSHIP.REMOVE_ORGANIZATION_MEMBERSHIP")}</DialogTitle>
                     <DialogDescription>
-                        Are you sure you want to remove the user from &quot;{organizationName}&quot;? This will
-                        revoke all roles associated with this organization.
+                        {t("REMOVE_MEMBERSHIP.ARE_YOU_SURE_YOU_WANT_TO", { organizationName })}
                     </DialogDescription>
                 </DialogHeader>
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
+                        {t("common:CANCEL")}
                     </Button>
                     <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
-                        {isPending ? "Removing..." : "Remove"}
+                        {isPending ? t("REMOVE_MEMBERSHIP.REMOVING") : t("common:REMOVE")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

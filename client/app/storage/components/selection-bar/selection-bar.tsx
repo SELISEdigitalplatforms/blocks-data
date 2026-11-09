@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui-kits/button/button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 import { Download, Share2 } from "lucide-react";
 
 interface SelectionBarProps {
@@ -18,17 +19,17 @@ export function SelectionBar({
   onDownload,
   onClear,
 }: Readonly<SelectionBarProps>) {
+  const { t } = useT("data.storage");
   if (count <= 0) {
     return null;
   }
 
   return (
-    <div
-      role="group"
-      aria-label="Selection"
-      className="flex items-center gap-3 rounded-md border bg-muted/50 px-3 py-1.5"
+    <fieldset
+      aria-label={t("SELECTION_BAR.SELECTION")}
+      className="flex min-w-0 items-center gap-3 rounded-md border bg-muted/50 px-3 py-1.5"
     >
-      <span className="text-sm font-medium">{count} selected</span>
+      <span className="text-sm font-medium">{t("SELECTION_BAR.COUNT_SELECTED", { count })}</span>
       <div className="ml-auto flex items-center gap-2">
         <Button
           size="sm"
@@ -38,16 +39,16 @@ export function SelectionBar({
           title={shareDisabledReason}
         >
           <Share2 className="mr-2 h-4 w-4" />
-          Share
+          {t("SELECTION_BAR.SHARE")}
         </Button>
         <Button size="sm" onClick={onDownload}>
           <Download className="mr-2 h-4 w-4" />
-          Download
+          {t("common:DOWNLOAD")}
         </Button>
         <Button size="sm" variant="ghost" onClick={onClear}>
-          Clear
+          {t("common:CLEAR")}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }

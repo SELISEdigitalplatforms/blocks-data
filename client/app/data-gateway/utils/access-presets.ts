@@ -1,5 +1,8 @@
 import { RULE_SOURCE_TYPES } from "../constants/schema-access-control";
 import type { IField } from "../models/data-service";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 /** One row of the rule-set form, in the shape `ruleSetSchema` expects. */
 export type PresetRuleRow = {
@@ -86,24 +89,24 @@ export function accessPresets(fields: Pick<IField, "name">[] = []): AccessPreset
       ? [
           {
             id: "owner",
-            title: "Only the owner",
-            hint: `The signed-in user must match ${ownerField}`,
+            title: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PRESETS.ONLY_THE_OWNER"),
+            hint: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PRESETS.THE_SIGNED_IN_USER_MUST_MATCH", { ownerField }),
             ruleSets: [ownerSet(ownerField)],
           },
         ]
       : []),
     {
       id: "roles",
-      title: "Specific roles",
-      hint: "Anyone holding one of the roles you choose",
+      title: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PRESETS.SPECIFIC_ROLES"),
+      hint: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PRESETS.ANYONE_HOLDING_ONE_OF_THE_ROLES"),
       ruleSets: [roleSet],
     },
     ...(ownerField
       ? [
           {
             id: "owner-plus-support",
-            title: "Owner, plus a support override",
-            hint: "Two rule sets — either one on its own grants access",
+            title: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PRESETS.OWNER_PLUS_A_SUPPORT_OVERRIDE"),
+            hint: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PRESETS.TWO_RULE_SETS_EITHER_ONE_ON"),
             ruleSets: [ownerSet(ownerField), { ...roleSet, name: "Support override" }],
           },
         ]

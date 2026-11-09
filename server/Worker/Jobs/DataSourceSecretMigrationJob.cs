@@ -124,7 +124,7 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         {
             summary.Ran = true;
             if (mode == ModePlan)
-                _logger.LogInformation("[dsc-migration] mode={Mode} value-store={Store}", mode, ResolveValueStore());
+                _logger.LogInformation("[dsc-migration] mode={Mode}", mode);
 
             var tenants = await _databases.GetTenantsAsync(cancellationToken);
             var allTenantIds = tenants.Select(t => t.TenantId).ToHashSet(StringComparer.Ordinal);
@@ -759,14 +759,6 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         if (v.IsValidDateTime)
             return new BsonDateTime(v.ToUniversalTime());
         return v;
-    }
-
-    private static string ResolveValueStore()
-    {
-        var configured = Environment.GetEnvironmentVariable("Secrets__ValueStore");
-        if (!string.IsNullOrWhiteSpace(configured))
-            return configured;
-        return string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("KeyVault__KeyVaultUrl")) ? "Database" : "KeyVault";
     }
 
     #endregion

@@ -6,6 +6,9 @@ import {
   AUTH_OIDC_ENDPOINTS,
   OIDC_FLOW_ENDPOINTS,
 } from "../constants/endpoint.constant";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
 export {
   buildNavigationUrl,
   redirectToLogin,
@@ -112,7 +115,7 @@ export const refreshAccessToken = async (
   } catch (error) {
     console.error("[Refresh Token] Error:", error);
     showErrorToast({
-      errors: "Failed to refresh token. Please try again from the start.",
+      errors: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "OIDC_AUTH_FLOW_SERVICE.FAILED_TO_REFRESH_TOKEN_PLEASE_TRY"),
     });
     setTimeout(() => {
       window.history.go(-2);
@@ -173,7 +176,7 @@ export const getOidcCredential = async (
 
     if (!response.ok) {
       showErrorToast({
-        errors: "Failed to fetch OIDC credential. Please try again.",
+        errors: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "OIDC_AUTH_FLOW_SERVICE.FAILED_TO_FETCH_OIDC_CREDENTIAL_PLEASE"),
       });
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -222,7 +225,7 @@ export const userAcknowledgement = async (
   } catch (error) {
     console.error("[User Acknowledgement] Error:", error);
     showErrorToast({
-      errors: "Failed to process permission. Please try again.",
+      errors: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "OIDC_AUTH_FLOW_SERVICE.FAILED_TO_PROCESS_PERMISSION_PLEASE"),
     });
     throw error;
   }

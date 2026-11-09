@@ -11,6 +11,7 @@ import {
 import { environmentOptions } from "@/constants/environment-options";
 import { useProjectStore } from "@/store/use-project-store";
 import { ChevronRight, Settings2 } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type ProjectCardProps = {
   project: IProject;
@@ -19,6 +20,7 @@ type ProjectCardProps = {
 
 
 export const ProjectCard = ({ project, projects }: ProjectCardProps) => {
+  const { t } = useT("data.shared");
   const navigate = useNavigate();
   const { setTennantGroup, setSelectedProject } = useProjectStore();
 
@@ -70,7 +72,7 @@ export const ProjectCard = ({ project, projects }: ProjectCardProps) => {
                   <Settings2 size={16} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Configure Project</TooltipContent>
+              <TooltipContent>{t("PROJECT_CARD.CONFIGURE_PROJECT")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -79,7 +81,7 @@ export const ProjectCard = ({ project, projects }: ProjectCardProps) => {
       <div className="mt-auto">
         {envList.length === 0 ? (
           <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-xs text-muted-foreground">
-            No environments
+            {t("PROJECT_CARD.NO_ENVIRONMENTS")}
           </span>
         ) : envList.length > 3 ? (
           <TooltipProvider>

@@ -7,6 +7,10 @@ import { useGetMFAConfig } from "@blocks-idp/mfa/hooks/use-mfa-config";
 import { Link } from "react-router";
 import { Button } from "@/components/ui-kits/button/button";
 import { createContext, useContext, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
+const USER_MFA_MULTI_FACTOR_AUTHENTICATION = "USER_MFA.MULTI_FACTOR_AUTHENTICATION";
 
 type UserMFAProps = {
   userId: string;
@@ -15,6 +19,7 @@ type UserMFAProps = {
 };
 
 export const UserConfigMFA = () => {
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   const { projectKey, userId } = useContext(userMfaContext);
   const { isLoading, isFetching, data } = useGetUserById({ id: userId, projectKey });
   const loading = isFetching || isLoading;
@@ -22,7 +27,7 @@ export const UserConfigMFA = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Multi-factor Authentication</CardTitle>
+          <CardTitle>{t(USER_MFA_MULTI_FACTOR_AUTHENTICATION)}</CardTitle>
           {loading ? (
             <Skeleton className="h-6 w-1/6" />
           ) : (
@@ -42,22 +47,21 @@ export const UserConfigMFA = () => {
 };
 
 export const ProjectMFA = () => {
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Multi-factor Authentication</CardTitle>
+          <CardTitle>{t(USER_MFA_MULTI_FACTOR_AUTHENTICATION)}</CardTitle>
           <Button asChild variant="outline" size="sm">
-            <Link to="/services/secret-management?tab=mfa">Go to MFA Settings</Link>
+            <Link to="/services/secret-management?tab=mfa">{t("USER_MFA.GO_TO_MFA_SETTINGS")}</Link>
           </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0!">
         <div className="space-y-2 text-base font-normal text-high-emphasis">
           <p>
-            Multi-Factor Authentication (MFA) enhances your account security by requiring an
-            additional verification step. To enable MFA, you need to first activate it for your
-            project.
+            {t("USER_MFA.MULTI_FACTOR_AUTHENTICATION_MFA")}
           </p>
         </div>
       </CardContent>
@@ -66,11 +70,12 @@ export const ProjectMFA = () => {
 };
 
 const LoadingSkelton = () => {
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   return (
     <Card className="rounded shadow-none">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl text-high-emphasis">Multi-factor Authentication</CardTitle>
+          <CardTitle className="text-xl text-high-emphasis">{t(USER_MFA_MULTI_FACTOR_AUTHENTICATION)}</CardTitle>
           <Skeleton className="h-6 w-1/6" />
         </div>
       </CardHeader>

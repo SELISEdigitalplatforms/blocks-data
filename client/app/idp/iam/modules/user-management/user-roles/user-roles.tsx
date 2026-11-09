@@ -7,6 +7,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { IRole } from "@blocks-idp/iam/models/role";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserRolesProps = {
   id: string;
@@ -14,6 +15,7 @@ type UserRolesProps = {
 };
 
 export const UserRoles = ({ id, projectKey }: UserRolesProps) => {
+  const { t } = useT("data.idp.iam");
   const { isLoading, roles } = useUserRoles({ id, projectKey });
 
   // Local state for roles and removed roles
@@ -49,11 +51,11 @@ export const UserRoles = ({ id, projectKey }: UserRolesProps) => {
       if (!res.isSuccess) {
         showErrorToast({ errors: res.errors });
       } else {
-        showSuccessToast({ description: "Roles updated successfully" });
+        showSuccessToast({ description: t("USER_ROLES.ROLES_UPDATED_SUCCESSFULLY") });
       }
     } catch (error) {
       if (isErrorWithErrors(error)) showErrorToast({ errors: error.errors });
-      else showErrorToast({ errors: "Something went wrong" });
+      else showErrorToast({ errors: t("USER_ROLES.SOMETHING_WENT_WRONG") });
     } finally {
       setIsSaving(false);
     }
@@ -62,15 +64,15 @@ export const UserRoles = ({ id, projectKey }: UserRolesProps) => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Roles</CardTitle>
+        <CardTitle>{t("USER_ROLES.ROLES")}</CardTitle>
         <div className="flex gap-2">
           {!!removedRoleSlugs.length && (
             <>
               <Button variant="outline" onClick={onReset} disabled={isSaving}>
-                Reset
+                {t("common:RESET")}
               </Button>
               <Button variant="outline" onClick={onSave} disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save"}
+                {isSaving ? t("USER_ROLES.SAVING") : t("common:SAVE")}
               </Button>
             </>
           )}

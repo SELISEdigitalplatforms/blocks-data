@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { PermissionSelectionRow } from "./permission-selection-row";
 import { isChecked } from "./permission-selection-utils";
 import { PermissionGroup, useRoleDetailsStore } from "./role-details-state";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionGroupSectionProps = {
   group: PermissionGroup;
@@ -13,6 +14,7 @@ type PermissionGroupSectionProps = {
 };
 
 export const PermissionGroupSection = ({ group, onTrigger }: PermissionGroupSectionProps) => {
+  const { t } = useT("data.idp.iam");
   const changePermissionGroupSelection = useRoleDetailsStore(
     (state) => state.changePermissionGroupSelection,
   );
@@ -81,19 +83,19 @@ export const PermissionGroupSection = ({ group, onTrigger }: PermissionGroupSect
                     </TooltipTrigger>
                   )}
                   <TooltipContent side="right">
-                    One or more permissions have missing dependencies
+                    {t("PERMISSION_GROUP_SECTION.ONE_OR_MORE_PERMISSIONS_HAVE_MISSING")}
                   </TooltipContent>
                 </Tooltip>
                 </TooltipProvider>
               </div>
               <span className="text-xs text-foreground/60">
-                {group.permissions.length} total permissions
+                {t("PERMISSION_GROUP_SECTION.LENGTH_TOTAL_PERMISSIONS", { length: group.permissions.length })}
               </span>
             </div>
           </div>
 
           <span className="rounded-full bg-primary/20 px-2.5 py-1 text-[10px] font-medium uppercase text-foreground">
-            {checkedPermissions.length} selected
+            {t("PERMISSION_GROUP_SECTION.LENGTH_SELECTED", { length: checkedPermissions.length })}
           </span>
         </div>
       </div>

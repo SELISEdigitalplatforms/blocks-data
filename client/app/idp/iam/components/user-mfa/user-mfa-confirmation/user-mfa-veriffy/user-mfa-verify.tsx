@@ -12,8 +12,10 @@ import { userMfaContext } from "../../user-mfa";
 import { UserMfaVerifyGuideLineTotp } from "./user-mfa-verify-guideline-totp";
 import { UserMfaVerifyGuideLineEmail } from "./user-mfa-verify-guideline-email";
 import { useGenerateUserMfaOTP } from "@blocks-idp/mfa/hooks/use-mfa-config";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const UserMFAVerify = () => {
+  const { t } = useT("data.idp.iam");
   const { setIsTotpModalOpen, isTotpModalOpen, mfaMethodType, projectKey, userId } =
     useContext(userMfaContext);
   const { mutateAsync } = useGenerateUserMfaOTP();
@@ -38,13 +40,12 @@ export const UserMFAVerify = () => {
   }, [generateOtp, isFirstMount, isTotpModalOpen]);
 
   return (
-    <>
       <Dialog open={isTotpModalOpen} onOpenChange={setIsTotpModalOpen}>
         <DialogContent>
           {mfaMethodType === 1 && (
             <DialogHeader>
-              <DialogTitle>Set up your authenticator app</DialogTitle>
-              <DialogDescription>Please follow the instructions below.</DialogDescription>
+              <DialogTitle>{t("USER_MFA_VERIFY.SET_UP_YOUR_AUTHENTICATOR_APP")}</DialogTitle>
+              <DialogDescription>{t("USER_MFA_VERIFY.PLEASE_FOLLOW_THE_INSTRUCTIONS_BELOW")}</DialogDescription>
             </DialogHeader>
           )}
           <div className="text-sm font-normal text-high-emphasis">
@@ -55,6 +56,5 @@ export const UserMFAVerify = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </>
   );
 };

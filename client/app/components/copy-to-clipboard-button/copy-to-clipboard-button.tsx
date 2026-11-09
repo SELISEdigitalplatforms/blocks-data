@@ -1,6 +1,25 @@
 import { MouseEvent, ReactNode, useState } from "react";
 import { Button } from "../ui-kits/button/button";
 import { Check, Copy } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+/** The clipboard API in a secure context, else the textarea and execCommand fallback. */
+export async function writeToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textArea);
+}
 
 interface CopyToClipboardButtonProps {
   textToCopy: string;
@@ -13,6 +32,7 @@ export const CopyToClipboardButton: React.FC<CopyToClipboardButtonProps> = ({
   children,
   isHoverable = false,
 }) => {
+  const { t } = useT("data.shared");
   const [isCopying, setIsCopying] = useState(false);
 
   const copyToClipBoard = async (event: MouseEvent<HTMLButtonElement>) => {
@@ -24,20 +44,7 @@ export const CopyToClipboardButton: React.FC<CopyToClipboardButtonProps> = ({
 
       setIsCopying(true);
 
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(textToCopy);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-      }
+      await writeToClipboard(textToCopy);
     } catch (err) {
       console.error("Failed to copy:", err);
       setIsCopying(false);
@@ -70,7 +77,7 @@ export const CopyToClipboardButton: React.FC<CopyToClipboardButtonProps> = ({
           )}
         </Button>
         <span className="absolute left-8 top-1/2 z-10 hidden -translate-y-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-md peer-hover:block">
-          {isCopying ? "Copied!" : "Copy"}
+          {isCopying ? t("COPY_TO_CLIPBOARD_BUTTON.COPIED") : t("common:COPY")}
           <span className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></span>
         </span>
       </div>

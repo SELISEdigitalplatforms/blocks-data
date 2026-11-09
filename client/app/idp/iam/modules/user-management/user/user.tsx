@@ -18,31 +18,35 @@ import { UserActionMenu } from "./user-action-menu";
 import { UserDevices } from "../user-devices";
 import { UserHistories } from "../user-histories";
 import { UserMemberships } from "../user-memberships";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
 
 const Menu = [
   {
     id: 1,
-    label: "Details",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "common:DETAILS"); },
     value: "details",
   },
   {
     id: 3,
-    label: "Devices",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER_MANAGEMENT_USER_USER.DEVICES"); },
     value: "devices",
   },
   {
     id: 4,
-    label: "History",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER_MANAGEMENT_USER_USER.HISTORY"); },
     value: "history",
   },
 ];
 
 export const User = ({ id }: { id: string }) => {
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [tabId, setTabId] = useQueryState("userDetails", { defaultValue: "details" });
   const { data } = useGetUserById({ id, projectKey: tenantId });
 
-  setBreadcrumbTitle("/services/iam/user-detail", "Users");
+  setBreadcrumbTitle("/services/iam/user-detail", t("USER.USERS"));
   setBreadcrumbTitle(`/services/iam/user-detail/${data?.data?.itemId}`, data?.data.lastName ?? null);
   return (
     <div className="px-4 pt-4 md:px-6 md:pt-6">
@@ -62,7 +66,7 @@ export const User = ({ id }: { id: string }) => {
             <div className="mb-5 mt-6 flex items-center justify-between rounded text-base">
               <Select value={tabId} onValueChange={setTabId}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Theme" />
+                  <SelectValue placeholder={t("USER_MANAGEMENT_USER_USER.THEME")} />
                 </SelectTrigger>
                 <SelectContent>
                   {Menu.map((item) => (

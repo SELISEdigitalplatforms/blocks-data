@@ -7,6 +7,7 @@ using DataGateway.DomainService.Services;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 
 namespace DataGateway.DomainService.Helpers;
 
@@ -66,7 +67,7 @@ public class SchemaDefinitionReferenceHelper
             if (!string.IsNullOrWhiteSpace(referenceSchemaName) && field.Type != referenceSchemaName) continue;
             var currentPath = isRoot ? field.Name : $"{parentPath}.{field.Name}";
 
-            if (GraphQlTypeHelper.IsScalar(field.Type))
+            if (SchemaTypeHelper.IsScalar(field.Type))
             {
                 if (!isRoot)
                     result.Add(CreateReferenceFieldDefinition(field, currentPath, schema.SchemaName));

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Copy, MoreVertical, Trash } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface SchemaStructureHeaderProps {
   isEditMode: boolean;
@@ -45,6 +46,7 @@ export function SchemaStructureHeader({
   onExpandAll,
   onCollapseAll,
 }: SchemaStructureHeaderProps) {
+  const { t } = useT("data.gateway.schema");
   /**
    * The underline used to switch with no transition at all — the border flipped
    * from transparent to primary on one trigger and back on another, which reads
@@ -62,16 +64,16 @@ export function SchemaStructureHeader({
     >
       <TabsList className="h-8 gap-1 rounded-none bg-transparent p-0">
         <TabsTrigger value="attribute" className={TAB_TRIGGER_CLASS}>
-          Attribute
+          {t("SCHEMA_STRUCTURE_HEADER.ATTRIBUTE")}
         </TabsTrigger>
         {schemaType !== 2 && (
           <TabsTrigger value="data" className={TAB_TRIGGER_CLASS}>
-            Data
+            {t("SCHEMA_STRUCTURE_HEADER.DATA")}
           </TabsTrigger>
         )}
         {schemaType !== 2 && (
           <TabsTrigger value="indexes" className={TAB_TRIGGER_CLASS}>
-            Indexes
+            {t("SCHEMA_STRUCTURE_HEADER.INDEXES")}
           </TabsTrigger>
         )}
       </TabsList>
@@ -92,17 +94,17 @@ export function SchemaStructureHeader({
             <div className="flex items-center">
               <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground" onClick={onExpandAll}>
                 <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden />
-                Expand all
+                {t("SCHEMA_STRUCTURE_HEADER.EXPAND_ALL")}
               </Button>
               <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground" onClick={onCollapseAll}>
                 <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden />
-                Collapse all
+                {t("SCHEMA_STRUCTURE_HEADER.COLLAPSE_ALL")}
               </Button>
             </div>
           )}
           {isEditMode && hasSelectedRows && (
             <span className="text-xs text-muted-foreground">
-              {selectedFieldEntriesLength} selected
+              {t("SCHEMA_STRUCTURE_HEADER.SELECTEDFIELDENTRIESLENGTH_SELECTED", { selectedFieldEntriesLength })}
             </span>
           )}
           {isEditMode && (
@@ -114,7 +116,7 @@ export function SchemaStructureHeader({
                   size="sm"
                   className="min-w-[130px] justify-between"
                 >
-                  Bulk actions
+                  {t("SCHEMA_STRUCTURE_HEADER.BULK_ACTIONS")}
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -125,7 +127,7 @@ export function SchemaStructureHeader({
                   onSelect={onBulkDuplicate}
                 >
                   <Copy className="mr-2 h-4 w-4" />
-                  Duplicate
+                  {t("SCHEMA_STRUCTURE_HEADER.DUPLICATE")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer text-red-500 focus:text-red-500"
@@ -133,14 +135,14 @@ export function SchemaStructureHeader({
                   onSelect={onBulkDelete}
                 >
                   <Trash className="mr-2 h-4 w-4 text-red-500" />
-                  Delete
+                  {t("common:DELETE")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
           {(isEditMode || activeTab === "attribute") && (
             <Button type="button" variant="outline" size="sm" onClick={onEditToggle}>
-              {isEditMode ? "Cancel" : "Edit"}
+              {isEditMode ? t("common:CANCEL") : t("common:EDIT")}
             </Button>
           )}
 
@@ -156,13 +158,13 @@ export function SchemaStructureHeader({
           <>
             {/* First Line: Title */}
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Schema Structure</h2>
+              <h2 className="text-lg font-semibold">{t("SCHEMA_STRUCTURE_HEADER.SCHEMA_STRUCTURE")}</h2>
             </div>
 
             {/* Second Line: Action Buttons */}
             {hasSelectedRows && (
               <p className="mt-2 text-xs text-muted-foreground">
-                {selectedFieldEntriesLength} selected
+                {t("SCHEMA_STRUCTURE_HEADER.SELECTEDFIELDENTRIESLENGTH_SELECTED", { selectedFieldEntriesLength })}
               </p>
             )}
             <div className="mt-3 flex gap-2">
@@ -174,7 +176,7 @@ export function SchemaStructureHeader({
                     size="sm"
                     className="min-w-[130px] justify-between"
                   >
-                    Bulk actions
+                    {t("SCHEMA_STRUCTURE_HEADER.BULK_ACTIONS")}
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -185,7 +187,7 @@ export function SchemaStructureHeader({
                     onSelect={onBulkDuplicate}
                   >
                     <Copy className="mr-2 h-4 w-4" />
-                    Duplicate
+                    {t("SCHEMA_STRUCTURE_HEADER.DUPLICATE")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="cursor-pointer text-red-500 focus:text-red-500"
@@ -193,12 +195,12 @@ export function SchemaStructureHeader({
                     onSelect={onBulkDelete}
                   >
                     <Trash className="mr-2 h-4 w-4 text-red-500" />
-                    Delete
+                    {t("common:DELETE")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button type="button" variant="outline" size="sm" onClick={onEditToggle}>
-                Cancel
+                {t("common:CANCEL")}
               </Button>
             </div>
 
@@ -207,9 +209,9 @@ export function SchemaStructureHeader({
               <Checkbox
                 checked={hasSelectedRows && selectedFieldEntriesLength === fieldsLength}
                 onCheckedChange={onSelectAll}
-                aria-label="Select all properties"
+                aria-label={t("SCHEMA_STRUCTURE_HEADER.SELECT_ALL_PROPERTIES")}
               />
-              <span className="text-sm font-medium">Select all</span>
+              <span className="text-sm font-medium">{t("SCHEMA_STRUCTURE_HEADER.SELECT_ALL")}</span>
             </div>
           </>
         ) : (
@@ -226,14 +228,14 @@ export function SchemaStructureHeader({
                 <DropdownMenuContent align="end" className="w-40">
                   {activeTab === "attribute" && (
                     <DropdownMenuItem className="cursor-pointer" onSelect={onEditToggle}>
-                      Edit
+                      {t("common:EDIT")}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onSelect={() => setIsPreviewDrawerOpen(true)}
                   >
-                    Preview
+                    {t("SCHEMA_STRUCTURE_HEADER.PREVIEW")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

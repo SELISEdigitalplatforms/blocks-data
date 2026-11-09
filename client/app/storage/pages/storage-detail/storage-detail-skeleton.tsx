@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const DirectoryGridSkeleton = () => (
   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -17,13 +18,15 @@ export const DirectoryGridSkeleton = () => (
   </div>
 );
 
-export const DirectoryListSkeleton = () => (
+export const DirectoryListSkeleton = () => {
+  const { t } = useT("data.storage");
+  return (
   <div className="rounded-lg border bg-background">
     <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
-      <div>Name</div>
-      <div>File type</div>
-      <div>Size</div>
-      <div>Last modified</div>
+      <div>{t("common:NAME")}</div>
+      <div>{t("STORAGE_DETAIL_SKELETON.FILE_TYPE")}</div>
+      <div>{t("STORAGE_DETAIL_SKELETON.SIZE")}</div>
+      <div>{t("STORAGE_DETAIL_SKELETON.LAST_MODIFIED")}</div>
       <div className="w-8"></div>
     </div>
     {Array.from({ length: 3 }).map((_, index) => (
@@ -43,6 +46,7 @@ export const DirectoryListSkeleton = () => (
     ))}
   </div>
 );
+};
 
 export const FileGridSkeleton = () => (
   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -64,13 +68,15 @@ export const FileGridSkeleton = () => (
   </div>
 );
 
-export const FileListSkeleton = () => (
+export const FileListSkeleton = () => {
+  const { t } = useT("data.storage");
+  return (
   <div className="rounded-lg border bg-background">
     <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
-      <div>Name</div>
-      <div>File type</div>
-      <div>Size</div>
-      <div>Last modified</div>
+      <div>{t("common:NAME")}</div>
+      <div>{t("STORAGE_DETAIL_SKELETON.FILE_TYPE")}</div>
+      <div>{t("STORAGE_DETAIL_SKELETON.SIZE")}</div>
+      <div>{t("STORAGE_DETAIL_SKELETON.LAST_MODIFIED")}</div>
       <div className="w-8"></div>
     </div>
     {Array.from({ length: 5 }).map((_, index) => (
@@ -90,3 +96,4 @@ export const FileListSkeleton = () => (
     ))}
   </div>
 );
+};

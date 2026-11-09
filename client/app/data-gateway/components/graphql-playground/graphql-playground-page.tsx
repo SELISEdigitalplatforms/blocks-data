@@ -3,12 +3,12 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
-import { useProjectStore } from "@seliseblocks/genesis-os";
+import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
-import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";
+import { Keyboard, Play } from "lucide-react";
 import type { editor, IDisposable, languages, Position } from "monaco-editor";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useExecuteGraphQL,
   useGraphQLIntrospection,
@@ -31,24 +31,12 @@ import {
   resolveInputObjectTypeAtCursor,
   type IntrospectionSuggestion,
 } from "../../utils/introspection-utils";
-import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+import { PlaygroundMonacoEditor as GraphqlMonacoEditor } from "../playground/monaco-editor";
 
-const MonacoEditorLazy = lazy(async () => {
-  await import("./monaco-local");
-  const mod = await import("@monaco-editor/react");
-  return { default: mod.default };
-});
-
-const monacoEditorFallback = (
-  <div className="flex h-full w-full items-center justify-center">Loading editor...</div>
-);
-
-const GraphqlMonacoEditor = (props: EditorProps) => (
-  <Suspense fallback={monacoEditorFallback}>
-    <MonacoEditorLazy {...props} />
-  </Suspense>
-);
+const GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME = "GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME";
+const GRAPHQL_PLAYGROUND_PAGE_RESPONSE = "GRAPHQL_PLAYGROUND_PAGE.RESPONSE";
 
 interface ResponseTab {
   id: string;
@@ -58,21 +46,39 @@ interface ResponseTab {
 
 const MAX_NESTING_DEPTH = 30;
 
-export const GraphQLPlaygroundPage = () => {
-  const [query, setQuery] = useState(() => {
-    if (typeof window !== "undefined") {
-      const storedQuery = localStorage.getItem("graphql-playground-query");
-      if (storedQuery) {
-        localStorage.removeItem("graphql-playground-query");
-        return storedQuery;
-      }
-    }
-    return "";
-  });
+/** The hover text of a field suggestion in the query editor: its type, and whether it is a nested DTO. */
+const fieldSuggestionText = (field: { type: string; isArray?: boolean }, isDto: boolean, t: TFunction) => {
+  const arraySuffix = field.isArray ? "[]" : "";
+  if (isDto) {
+    return {
+      documentation: `${field.type}${arraySuffix}${t("GRAPHQL_PLAYGROUND_PAGE.NESTED_DTO")}`,
+      detail: t("GRAPHQL_PLAYGROUND_PAGE.DTO_TYPE", { type: field.type }),
+    };
+  }
+  return {
+    documentation: `${field.type}${arraySuffix}`,
+    detail: t("GRAPHQL_PLAYGROUND_PAGE.FIELD_TYPE", { type: field.type }),
+  };
+};
+
+type GraphQLWorkspaceProps = {
+  /** The starting query, from a playground handoff; read once on mount. */
+  initialQuery?: string;
+  /** The Schemas drawer's open state, owned by the playground shell, which renders its button. */
+  schemasOpen: boolean;
+  onSchemasOpenChange: (open: boolean) => void;
+};
+
+/** The GraphQL tab of the playground: query editor and response panels, plus the Schemas drawer. */
+export const GraphQLWorkspace = ({
+  initialQuery,
+  schemasOpen: isSchemasDrawerOpen,
+  onSchemasOpenChange: setIsSchemasDrawerOpen,
+}: GraphQLWorkspaceProps) => {
+  const { t } = useT("data.gateway.schema");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
-  const [isCleanDataModalOpen, setIsCleanDataModalOpen] = useState(false);
-  const [isSchemasDrawerOpen, setIsSchemasDrawerOpen] = useState(false);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const codeLensDisposableRef = useRef<IDisposable | null>(null);
@@ -118,21 +124,20 @@ export const GraphQLPlaygroundPage = () => {
       enabled: !!projectKey,
     });
 
-  const handleFetchSchemas = () => {
-    setIsSchemasDrawerOpen(true);
-  };
-
   const isSchemasDrawerLoading =
     isSchemasDrawerOpen &&
     !!projectShortKey &&
     (isSchemasIntrospectionPending || schemasIntrospectionData === undefined);
 
-  const handleUseQueryFromSchemas = useCallback((queryText: string) => {
-    setQuery(queryText);
-    setIsSchemasDrawerOpen(false);
-    setResponses([]);
-    setActiveResponseTab("");
-  }, []);
+  const handleUseQueryFromSchemas = useCallback(
+    (queryText: string) => {
+      setQuery(queryText);
+      setIsSchemasDrawerOpen(false);
+      setResponses([]);
+      setActiveResponseTab("");
+    },
+    [setIsSchemasDrawerOpen],
+  );
 
   // Fetch introspected schema for accurate autocompletion
   const { data: introspectedSchema } = useGraphQLIntrospection({
@@ -346,7 +351,7 @@ export const GraphQLPlaygroundPage = () => {
       if (operationMatch && braceDepth === 0) {
         currentOperation = {
           type: operationMatch[1],
-          name: operationMatch[2] || "Unnamed",
+          name: operationMatch[2] || t("GRAPHQL_PLAYGROUND_PAGE.UNNAMED"),
           startLine: lineNumber,
           text: line,
         };
@@ -372,7 +377,7 @@ export const GraphQLPlaygroundPage = () => {
     });
 
     return operations;
-  }, []);
+  }, [t]);
 
   // Helper function to inject "mock-data" tag into insert operations
   const injectMockDataTag = useCallback((queryText: string): string => {
@@ -589,19 +594,28 @@ export const GraphQLPlaygroundPage = () => {
     // Store monaco instance globally for later use
     (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco = monaco;
 
+    // Key bindings are actions, not addCommand: addCommand binds globally (no `when` clause) and is never disposed,
+    // so it would fire in the REST editor mounted beside this one. An action's keybinding has a condition scoped to
+    // this editor's id, so it fires only in this editor. Monaco doesn't dispose the binding when the editor goes,
+    // but no other editor has that id, so it can't fire again.
     // Shift+Enter inserts a newline without accepting any active suggestion
-    editorInstance.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () =>
-      editorInstance.trigger("keyboard", "type", { text: "\n" }),
-    );
+    editorInstance.addAction({
+      id: "graphql-playground.insert-newline",
+      label: t("GRAPHQL_PLAYGROUND_PAGE.NEW_LINE"),
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.Enter],
+      run: () => editorInstance.trigger("keyboard", "type", { text: "\n" }),
+    });
 
     // Ctrl+Shift+E → Execute the current query
-    editorInstance.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
-      () => {
+    editorInstance.addAction({
+      id: "graphql-playground.execute",
+      label: t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE"),
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
+      run: () => {
         const executeBtn = document.getElementById("graphql-execute-btn");
         if (executeBtn) executeBtn.click();
       },
-    );
+    });
 
     // Mark Monaco as ready
     setIsMonacoReady(true);
@@ -701,8 +715,8 @@ export const GraphQLPlaygroundPage = () => {
                   kind: monaco.languages.CompletionItemKind.Keyword,
                   insertText: "query {\n  $0\n}",
                   insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                  documentation: "GraphQL query block",
-                  detail: "Query keyword",
+                  documentation: t("GRAPHQL_PLAYGROUND_PAGE.GRAPHQL_QUERY_BLOCK"),
+                  detail: t("GRAPHQL_PLAYGROUND_PAGE.QUERY_KEYWORD"),
                   sortText: "9_query",
                   range,
                 },
@@ -711,8 +725,8 @@ export const GraphQLPlaygroundPage = () => {
                   kind: monaco.languages.CompletionItemKind.Keyword,
                   insertText: "mutation {\n  $0\n}",
                   insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                  documentation: "GraphQL mutation block",
-                  detail: "Mutation keyword",
+                  documentation: t("GRAPHQL_PLAYGROUND_PAGE.GRAPHQL_MUTATION_BLOCK"),
+                  detail: t("GRAPHQL_PLAYGROUND_PAGE.MUTATION_KEYWORD"),
                   sortText: "9_mutation",
                   range,
                 },
@@ -1015,7 +1029,7 @@ export const GraphQLPlaygroundPage = () => {
                       : operator === "in"
                         ? `${operator}: [\${1}]`
                         : `${operator}: \${1}`,
-                    `${leafType} filter operator`,
+                    t("GRAPHQL_PLAYGROUND_PAGE.LEAFTYPE_FILTER_OPERATOR", { leafType }),
                     monaco.languages.CompletionItemKind.Keyword,
                   ),
                 );
@@ -1028,8 +1042,8 @@ export const GraphQLPlaygroundPage = () => {
                     field.name,
                     `${field.name}: {\n  \${1}\n}`,
                     nested
-                      ? `Filter fields inside ${field.type}`
-                      : `Filter ${field.name} (${field.type})`,
+                      ? t("GRAPHQL_PLAYGROUND_PAGE.FILTER_FIELDS_INSIDE_TYPE", { type: field.type })
+                      : t("GRAPHQL_PLAYGROUND_PAGE.FILTER_NAME_TYPE", { name: field.name, type: field.type }),
                     nested
                       ? monaco.languages.CompletionItemKind.Class
                       : monaco.languages.CompletionItemKind.Field,
@@ -1040,7 +1054,7 @@ export const GraphQLPlaygroundPage = () => {
                     addFallback(
                       operator,
                       `${operator}: [{\n  \${1}\n}]`,
-                      `Logical ${operator.toUpperCase()} conditions`,
+                      t("GRAPHQL_PLAYGROUND_PAGE.LOGICAL_OPERATOR_CONDITIONS", { operator: operator.toUpperCase() }),
                       monaco.languages.CompletionItemKind.Keyword,
                     ),
                   );
@@ -1175,8 +1189,7 @@ export const GraphQLPlaygroundPage = () => {
                     : monaco.languages.CompletionItemKind.Field,
                   insertText,
                   insertTextRules,
-                  documentation: `${field.type}${field.isArray ? "[]" : ""}${isDto ? " (nested DTO)" : ""}`,
-                  detail: isDto ? `DTO: ${field.type}` : `Field: ${field.type}`,
+                  ...fieldSuggestionText(field, Boolean(isDto), t),
                   sortText: `0_${field.name}`,
                   range,
                 });
@@ -1193,8 +1206,8 @@ export const GraphQLPlaygroundPage = () => {
               kind: monaco.languages.CompletionItemKind.Keyword,
               insertText: "query {\n  $0\n}",
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              documentation: "GraphQL query block",
-              detail: "Query keyword",
+              documentation: t("GRAPHQL_PLAYGROUND_PAGE.GRAPHQL_QUERY_BLOCK"),
+              detail: t("GRAPHQL_PLAYGROUND_PAGE.QUERY_KEYWORD"),
               range,
             },
             {
@@ -1202,8 +1215,8 @@ export const GraphQLPlaygroundPage = () => {
               kind: monaco.languages.CompletionItemKind.Keyword,
               insertText: "mutation {\n  $0\n}",
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              documentation: "GraphQL mutation block",
-              detail: "Mutation keyword",
+              documentation: t("GRAPHQL_PLAYGROUND_PAGE.GRAPHQL_MUTATION_BLOCK"),
+              detail: t("GRAPHQL_PLAYGROUND_PAGE.MUTATION_KEYWORD"),
               range,
             },
           );
@@ -1233,8 +1246,8 @@ export const GraphQLPlaygroundPage = () => {
   }
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              documentation: `Query ${schemaName} entities with pagination`,
-              detail: `Query: ${schemaName}`,
+              documentation: t("GRAPHQL_PLAYGROUND_PAGE.QUERY_SCHEMANAME_ENTITIES_WITH", { schemaName }),
+              detail: t("GRAPHQL_PLAYGROUND_PAGE.QUERY_SCHEMANAME", { schemaName }),
               sortText: `0_get${schemaName}s`,
               range,
             });
@@ -1252,8 +1265,8 @@ export const GraphQLPlaygroundPage = () => {
   itemId
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              documentation: `Insert new ${schemaName} entry`,
-              detail: `Mutation: ${schemaName}`,
+              documentation: t("GRAPHQL_PLAYGROUND_PAGE.INSERT_NEW_SCHEMANAME_ENTRY", { schemaName }),
+              detail: t(GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME, { schemaName }),
               sortText: `0_insert${schemaName}`,
               range,
             });
@@ -1272,8 +1285,8 @@ export const GraphQLPlaygroundPage = () => {
   itemId
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              documentation: `Update ${schemaName} entry`,
-              detail: `Mutation: ${schemaName}`,
+              documentation: t("GRAPHQL_PLAYGROUND_PAGE.UPDATE_SCHEMANAME_ENTRY", { schemaName }),
+              detail: t(GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME, { schemaName }),
               sortText: `0_update${schemaName}`,
               range,
             });
@@ -1289,8 +1302,8 @@ export const GraphQLPlaygroundPage = () => {
   itemId
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              documentation: `Delete ${schemaName} entry`,
-              detail: `Mutation: ${schemaName}`,
+              documentation: t("GRAPHQL_PLAYGROUND_PAGE.DELETE_SCHEMANAME_ENTRY", { schemaName }),
+              detail: t(GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME, { schemaName }),
               sortText: `0_delete${schemaName}`,
               range,
             });
@@ -1302,15 +1315,7 @@ export const GraphQLPlaygroundPage = () => {
     } catch (error) {
       console.error("Error registering completion provider:", error);
     }
-  }, [
-    schemas,
-    generateFieldSnippet,
-    isMonacoReady,
-    dtoPreviewMap,
-    dtoSchemas,
-    introspectedSchema,
-    toMonacoItem,
-  ]);
+  }, [schemas, generateFieldSnippet, isMonacoReady, dtoPreviewMap, dtoSchemas, introspectedSchema, toMonacoItem, t]);
 
   // Register CodeLens provider for individual operation execution
   useEffect(() => {
@@ -1462,13 +1467,13 @@ export const GraphQLPlaygroundPage = () => {
 
         newResponses.push({
           id: `response-${i}`,
-          name: operations.length === 1 ? "Response" : `Response ${i + 1}`,
+          name: operations.length === 1 ? t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE) : t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE_VALUE", { value: i + 1 }),
           content: JSON.stringify(data, null, 2),
         });
       } catch (error) {
         newResponses.push({
           id: `response-${i}`,
-          name: operations.length === 1 ? "Response" : `Response ${i + 1}`,
+          name: operations.length === 1 ? t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE) : t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE_VALUE", { value: i + 1 }),
           content: JSON.stringify({ error: String(error) }, null, 2),
         });
       }
@@ -1483,53 +1488,6 @@ export const GraphQLPlaygroundPage = () => {
 
   return (
     <>
-      <div className="relative flex h-full w-full flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
-        {/* Ambient gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
-
-        {/* Top header */}
-        <div className="relative flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-card/80 px-3 py-2 sm:px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500/10 ring-1 ring-indigo-500/20">
-              <svg viewBox="0 0 30 30" className="h-3.5 w-3.5 text-indigo-400" fill="currentColor">
-                <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z" />
-                <circle cx="15" cy="1.833" r="2.5" />
-                <circle cx="28.667" cy="9.5" r="2.5" />
-                <circle cx="28.667" cy="20.5" r="2.5" />
-                <circle cx="15" cy="28.167" r="2.5" />
-                <circle cx="1.333" cy="20.5" r="2.5" />
-                <circle cx="1.333" cy="9.5" r="2.5" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-semibold text-foreground">GraphQL Playground</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* `outline` rather than `ghost`: ghost has no resting border or
-                background of its own, only a hover state, so paired with
-                muted text it read as a disabled control until the cursor
-                found it — same fix as the validation panel's empty-state CTA. */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleFetchSchemas}
-              disabled={isSchemasDrawerLoading}
-              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-border hover:text-foreground"
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              Schemas
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsCleanDataModalOpen(true)}
-              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-rose-500/30 hover:text-rose-500"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clean Test Data
-            </Button>
-          </div>
-        </div>
-
         {/* Stacked on phones, with a gap so Response reads as its own panel
             rather than running straight on from the editor's empty space. */}
         <div className="relative flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-0">
@@ -1537,28 +1495,31 @@ export const GraphQLPlaygroundPage = () => {
           <div className="flex min-h-[320px] w-full flex-col border-b border-border/40 md:min-h-0 md:w-1/2 md:border-b-0 md:border-r">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 bg-muted/10 px-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Query Editor</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("GRAPHQL_PLAYGROUND_PAGE.QUERY_EDITOR")}</span>
                 <div className="group relative">
                   <Keyboard className="h-3.5 w-3.5 cursor-help text-muted-foreground/60 transition-colors hover:text-muted-foreground" />
                   <div className="absolute left-0 top-full z-50 mt-2 hidden w-60 rounded-sm border border-border/40 bg-card p-3 text-xs shadow-xl group-hover:block">
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      Shortcuts
+                      {t("GRAPHQL_PLAYGROUND_PAGE.SHORTCUTS")}
                     </p>
                     <div className="space-y-1.5 text-muted-foreground">
                       <div className="flex items-center justify-between">
-                        <span>Execute</span>
+                        <span>{t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- keyboard key names, shown as on the keyboard */}
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                           Ctrl+Shift+E
                         </kbd>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>New line</span>
+                        <span>{t("GRAPHQL_PLAYGROUND_PAGE.NEW_LINE")}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- keyboard key names, shown as on the keyboard */}
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                           Shift+Enter
                         </kbd>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>Navigate</span>
+                        <span>{t("GRAPHQL_PLAYGROUND_PAGE.NAVIGATE")}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- keyboard key names, shown as on the keyboard */}
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                           Tab
                         </kbd>
@@ -1575,7 +1536,7 @@ export const GraphQLPlaygroundPage = () => {
                 className="h-7 gap-1.5 px-3 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_-2px_rgba(99,102,241,0.5)]"
               >
                 <Play className="h-3 w-3" />
-                {isLoading ? "Executing…" : "Execute"}
+                {isLoading ? "Executing…" : t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}
               </Button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -1608,7 +1569,7 @@ export const GraphQLPlaygroundPage = () => {
             {responses.length === 0 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground">Response</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE)}</span>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <GraphqlMonacoEditor
@@ -1705,10 +1666,6 @@ export const GraphQLPlaygroundPage = () => {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Clean Test Data Modal */}
-      <CleanTestDataModal open={isCleanDataModalOpen} onOpenChange={setIsCleanDataModalOpen} />
 
       {/* Schemas Introspection Drawer */}
       <SchemasDrawer

@@ -37,8 +37,10 @@ import {
   createClientSchema,
 } from "./utils";
 import { isErrorWithErrors } from "@/lib/error";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const CreateClientCredential = () => {
+  const { t } = useT("data.idp.authentication");
   const [open, setOpen] = useState<boolean>(false);
   const [filter, setFilter] = useState<string>("");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
@@ -87,12 +89,12 @@ export const CreateClientCredential = () => {
 
       const res = await saveServiceClient(payload);
       if (!res.isSuccess) return showErrorToast({ errors: res.error });
-      showSuccessToast({ description: "Service Created successfully" });
+      showSuccessToast({ description: t("CREATE_CLIENT_CREDENTIAL.SERVICE_CREATED_SUCCESSFULLY") });
       setOpen(false);
       return;
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      return showErrorToast({ errors: "Something went wrong" });
+      return showErrorToast({ errors: t("CREATE_CLIENT_CREDENTIAL.SOMETHING_WENT_WRONG") });
     } finally {
       form.reset();
     }
@@ -103,13 +105,13 @@ export const CreateClientCredential = () => {
       <DialogTrigger>
         <Button>
           <Plus className="aspect-square w-4" />
-          <span className="sr-only sm:not-sr-only sm:ml-2">Create</span>
+          <span className="sr-only sm:not-sr-only sm:ml-2">{t("common:CREATE")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>New Access Token</DialogTitle>
-          <DialogDescription>Enter details to create a new key.</DialogDescription>
+          <DialogTitle>{t("CREATE_CLIENT_CREDENTIAL.NEW_ACCESS_TOKEN")}</DialogTitle>
+          <DialogDescription>{t("CREATE_CLIENT_CREDENTIAL.ENTER_DETAILS_TO_CREATE_A_NEW")}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -119,9 +121,9 @@ export const CreateClientCredential = () => {
               name="clientNameService"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client Name</FormLabel>
+                  <FormLabel>{t("CREATE_CLIENT_CREDENTIAL.CLIENT_NAME")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter client name" {...field} />
+                    <Input placeholder={t("CREATE_CLIENT_CREDENTIAL.ENTER_CLIENT_NAME")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -133,9 +135,9 @@ export const CreateClientCredential = () => {
               name="audienceUrlService"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Audience</FormLabel>
+                  <FormLabel>{t("CREATE_CLIENT_CREDENTIAL.AUDIENCE")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter audience URL" {...field} />
+                    <Input placeholder={t("CREATE_CLIENT_CREDENTIAL.ENTER_AUDIENCE_URL")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -147,12 +149,12 @@ export const CreateClientCredential = () => {
               name="roles"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Assign Role(s)</FormLabel>
+                  <FormLabel>{t("CREATE_CLIENT_CREDENTIAL.ASSIGN_ROLE_S")}</FormLabel>
 
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search by role name"
+                      placeholder={t("CREATE_CLIENT_CREDENTIAL.SEARCH_BY_ROLE_NAME")}
                       className="pl-9"
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
@@ -191,7 +193,7 @@ export const CreateClientCredential = () => {
 
                       {!isLoading && filteredRoles?.length === 0 && (
                         <p className="col-span-2 py-2 text-center text-sm text-muted-foreground">
-                          No roles found
+                          {t("CREATE_CLIENT_CREDENTIAL.NO_ROLES_FOUND")}
                         </p>
                       )}
                     </div>
@@ -203,11 +205,11 @@ export const CreateClientCredential = () => {
             <DialogFooter>
               <DialogClose>
                 <Button onClick={() => setOpen(false)} type="button" variant="outline">
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogClose>
               <Button disabled={isPending || !isDirty} type="submit">
-                Add
+                {t("common:ADD")}
               </Button>
             </DialogFooter>
           </form>

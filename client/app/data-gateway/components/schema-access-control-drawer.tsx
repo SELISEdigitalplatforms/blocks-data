@@ -11,6 +11,7 @@ import { Shield, X } from "lucide-react";
 import React, { ReactNode } from "react";
 import { AccessInspectorPanel } from "./access-inspector";
 import type { IField } from "@/data-gateway/models/data-service";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface SchemaAccessControlDrawerProps {
   fields?: IField[];
@@ -39,12 +40,13 @@ const SchemaAccessControlDrawer = ({
   editAccessLevel,
   deleteAccessLevel,
   fieldNames = [],
-  title = "Schema Access Control",
+  title = tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_DRAWER.SCHEMA_ACCESS_CONTROL"),
   trigger,
   open,
   onOpenChange,
   selectedTab,
 }: SchemaAccessControlDrawerProps) => {
+  const { t } = useT("data.gateway.access");
   const handleCloseAutoFocus = (event: Event) => {
     // In controlled mode, avoid restoring focus to hidden/virtual triggers.
     event.preventDefault();
@@ -72,13 +74,13 @@ const SchemaAccessControlDrawer = ({
               {title}
             </DrawerTitle>
             <DrawerDescription className="sr-only">
-              Configure access rules for this schema.
+              {t("SCHEMA_ACCESS_CONTROL_DRAWER.CONFIGURE_ACCESS_RULES_FOR_THIS_SCHEMA")}
             </DrawerDescription>
             <DrawerClose asChild>
               <button
                 type="button"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Close schema access drawer"
+                aria-label={t("SCHEMA_ACCESS_CONTROL_DRAWER.CLOSE_SCHEMA_ACCESS_DRAWER")}
               >
                 <X className="h-4 w-4" />
               </button>

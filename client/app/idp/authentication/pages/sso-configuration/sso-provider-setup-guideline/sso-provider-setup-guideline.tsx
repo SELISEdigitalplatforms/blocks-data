@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui-kits/separator/separator";
 import { SSOSetupGuideSteps } from "./sso-setup-guideline-steps-docs";
 import { Button } from "@/components/ui-kits/button/button";
 import { SSO_PROVIDERS } from "@blocks-idp/authentication/constants/sso-providers.constant";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type SSoProviderSetupGuideLineProps = {
   provider: SSO_PROVIDERS;
@@ -13,6 +14,7 @@ type SSoProviderSetupGuideLineProps = {
 };
 
 export const SSoProviderSetupGuideLine = ({ provider, open, onOpenChange }: SSoProviderSetupGuideLineProps) => {
+  const { t } = useT("data.idp.authentication");
   const steps = SSOSetupGuideSteps[provider] || null;
 
   if (!steps) return;
@@ -29,7 +31,7 @@ export const SSoProviderSetupGuideLine = ({ provider, open, onOpenChange }: SSoP
         >
           <div>
             <div className="flex items-center justify-between gap-2 p-4">
-              <h2 className="text-lg font-semibold">Setup Guide</h2>
+              <h2 className="text-lg font-semibold">{t("SSO_PROVIDER_SETUP_GUIDELINE.SETUP_GUIDE")}</h2>
               <Button variant="ghost" onClick={() => onOpenChange(false)} className="h-fit w-fit p-2!">
                 <X className="aspect-square w-4" />
               </Button>

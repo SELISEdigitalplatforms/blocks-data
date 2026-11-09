@@ -15,6 +15,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Progress } from "@/components/ui-kits/progress/progress";
 import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
 import { ExternalLink, FileText } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type FilePreviewModalProps = {
   open: boolean;
@@ -33,6 +34,7 @@ export const FilePreviewModal = ({
   fileExtension,
   isLoading = false,
 }: FilePreviewModalProps) => {
+  const { t } = useT("data.storage");
   const [isPdfLoaded, setIsPdfLoaded] = useState(false);
   const [textContent, setTextContent] = useState<string>("");
   const [isLoadingText, setIsLoadingText] = useState(false);
@@ -65,7 +67,7 @@ export const FilePreviewModal = ({
           setTextContent(text);
         } catch (error) {
           console.error("Error fetching text content:", error);
-          setTextContent("Error loading file content");
+          setTextContent(t("FILE_PREVIEW_MODAL.ERROR_LOADING_FILE_CONTENT"));
         } finally {
           setIsLoadingText(false);
         }
@@ -73,7 +75,7 @@ export const FilePreviewModal = ({
     };
 
     fetchTextContent();
-  }, [fileUrl, extension, open]);
+  }, [fileUrl, extension, open, t]);
 
   const renderFilePreview = () => {
     if (isLoading) {
@@ -83,12 +85,12 @@ export const FilePreviewModal = ({
             <FileText className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-medium">Preparing preview</p>
-            <p className="text-sm text-muted-foreground">Retrieving a secure link to your file.</p>
+            <p className="text-sm font-medium">{t("FILE_PREVIEW_MODAL.PREPARING_PREVIEW")}</p>
+            <p className="text-sm text-muted-foreground">{t("FILE_PREVIEW_MODAL.RETRIEVING_A_SECURE_LINK_TO_YOUR")}</p>
           </div>
           <Progress
             value={65}
-            aria-label="Loading file preview"
+            aria-label={t("FILE_PREVIEW_MODAL.LOADING_FILE_PREVIEW")}
             className="h-1.5 w-full max-w-sm"
             indicatorClassName="animate-pulse"
           />
@@ -99,9 +101,9 @@ export const FilePreviewModal = ({
     if (!fileUrl) {
       return (
         <div className="flex h-[60vh] flex-col items-center justify-center gap-2 text-center">
-          <p className="font-medium">Unable to load file preview</p>
+          <p className="font-medium">{t("FILE_PREVIEW_MODAL.UNABLE_TO_LOAD_FILE_PREVIEW")}</p>
           <p className="text-sm text-muted-foreground">
-            Try closing the dialog and opening the file again.
+            {t("FILE_PREVIEW_MODAL.TRY_CLOSING_THE_DIALOG_AND_OPENING")}
           </p>
         </div>
       );
@@ -143,7 +145,7 @@ export const FilePreviewModal = ({
         <div className="flex h-[70vh] items-center justify-center bg-black">
           <video controls className="max-h-full max-w-full">
             <source src={fileUrl} type={`video/${ext.replace(".", "")}`} />
-            Your browser does not support the video tag.
+            {t("FILE_PREVIEW_MODAL.YOUR_BROWSER_DOES_NOT_SUPPORT_THE")}
           </video>
         </div>
       );
@@ -155,7 +157,7 @@ export const FilePreviewModal = ({
         <div className="flex h-[70vh] items-center justify-center">
           <audio controls className="w-full">
             <source src={fileUrl} type={`audio/${ext.replace(".", "")}`} />
-            Your browser does not support the audio tag.
+            {t("FILE_PREVIEW_MODAL.YOUR_BROWSER_DOES_NOT_SUPPORT_THE_2")}
           </audio>
         </div>
       );
@@ -179,9 +181,9 @@ export const FilePreviewModal = ({
     // For other file types, show a download link
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-2 text-center">
-        <p className="font-medium">Preview not available for this file type</p>
+        <p className="font-medium">{t("FILE_PREVIEW_MODAL.PREVIEW_NOT_AVAILABLE_FOR_THIS_FILE")}</p>
         <p className="text-sm text-muted-foreground">
-          Open or download the file to view it in its native application.
+          {t("FILE_PREVIEW_MODAL.OPEN_OR_DOWNLOAD_THE_FILE_TO")}
         </p>
       </div>
     );
@@ -200,7 +202,7 @@ export const FilePreviewModal = ({
                 {fileName}
               </DialogTitle>
               <DialogDescription>
-                {extension ? `${extension.slice(1).toUpperCase()} file preview` : "File preview"}
+                {extension ? t("FILE_PREVIEW_MODAL.SLICE_FILE_PREVIEW", { slice: extension.slice(1).toUpperCase() }) : t("FILE_PREVIEW_MODAL.FILE_PREVIEW")}
               </DialogDescription>
             </div>
           </div>
@@ -208,12 +210,12 @@ export const FilePreviewModal = ({
         <div className="px-6 py-5">{renderFilePreview()}</div>
         <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:gap-2">
           <DialogClose asChild>
-            <Button variant="outline">Close</Button>
+            <Button variant="outline">{t("common:CLOSE")}</Button>
           </DialogClose>
           {fileUrl ? (
             <Button asChild>
               <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                Open in new tab
+                {t("FILE_PREVIEW_MODAL.OPEN_IN_NEW_TAB")}
                 <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
               </a>
             </Button>

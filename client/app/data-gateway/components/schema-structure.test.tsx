@@ -47,6 +47,7 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("../hooks/use-configuration", () => ({
   useUpdateSchemaStructure: () => ({ mutateAsync, isPending: false }),
   useRawIntrospectionQuery: () => ({ data: undefined }),
+  usePendingSchemaIds: () => new Set<string>(),
   useSchemaList: () => ({
     data: {
       data: {
@@ -204,7 +205,13 @@ vi.mock("./schema-access-control-drawer", () => ({
 
 vi.mock("./schema-preview-drawer", () => ({
   SchemaPreviewDrawer: (p: Record<string, unknown>) => (
-    <div data-testid="preview-drawer" data-open={String(!!p.open)}>
+    <div
+      data-testid="preview-drawer"
+      data-open={String(!!p.open)}
+      data-details={(p.schemaDetails as { schemaName?: string } | undefined)?.schemaName}
+      data-all-schemas={(p.allSchemas as unknown[] | undefined)?.length}
+      data-live-state={String(p.liveState)}
+    >
       {p.schemaName}
     </div>
   ),
@@ -388,6 +395,15 @@ describe("SchemaStructureTable", () => {
       "data-open",
       "true",
     );
+  });
+
+  it("hands the preview drawer the schema, the project's schemas and its live state", () => {
+    renderTable({ isLive: false });
+    const drawer = screen.getByTestId("preview-drawer");
+    expect(drawer).toHaveAttribute("data-details", "User");
+    // The mocked list answers both the entity and the DTO query with one schema.
+    expect(drawer).toHaveAttribute("data-all-schemas", "2");
+    expect(drawer).toHaveAttribute("data-live-state", "not-live");
   });
 
   it("opens the validation drawer for a field", async () => {

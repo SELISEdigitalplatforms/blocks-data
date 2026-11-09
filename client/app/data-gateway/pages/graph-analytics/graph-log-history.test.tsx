@@ -25,6 +25,7 @@ const ITEM: IGraphLogHistoryItem = {
   entityName: "BlxDrive",
   collectionName: "",
   operationType: "query",
+  transport: "graphql",
   operationQuery: "query GetBlxDrives($userId: String!) { getBlxDrives { items { ItemId } } }",
   mongoQuery: '{ "UserId": "u1" }',
   responseStatus: "failed",
@@ -114,6 +115,7 @@ describe("GraphLogHistory", () => {
       pageNo: 1,
       pageSize: 10,
       operationType: undefined,
+      transport: undefined,
       outcome: undefined,
       statusCode: undefined,
       failureKind: undefined,
@@ -160,6 +162,41 @@ describe("GraphLogHistory", () => {
     expect(within(details).getByText("User is not authenticated.")).toBeInTheDocument();
     expect(within(details).getByText(/query GetBlxDrives/)).toBeInTheDocument();
     expect(within(details).getByText(/"UserId": "u1"/)).toBeInTheDocument();
+  });
+
+  it("shows a Transport column with a REST or GraphQL badge per row", () => {
+    mockResult([ITEM, { ...ITEM, spanId: "rest-span", transport: "rest" }]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Transport" })).toBeInTheDocument();
+    expect(within(table).getByText("REST")).toBeInTheDocument();
+    expect(within(table).getByText("GraphQL")).toBeInTheDocument();
+    // The server has no transport sort, so the column is a plain header.
+    expect(screen.queryByRole("button", { name: "Sort by Transport" })).not.toBeInTheDocument();
+  });
+
+  it("filters by transport and returns to the first page", async () => {
+    const user = userEvent.setup();
+    mockResult([ITEM], 25);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    await user.click(screen.getByTitle("Next page"));
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(expect.objectContaining({ pageNo: 2 }));
+
+    await user.click(screen.getByRole("combobox", { name: "Transport" }));
+    await user.click(await screen.findByRole("option", { name: "REST" }));
+
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ transport: "rest", pageNo: 1 }),
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Transport" }));
+    await user.click(await screen.findByRole("option", { name: "All transports" }));
+
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ transport: undefined, pageNo: 1 }),
+    );
   });
 
   it("filters by failure reason", async () => {

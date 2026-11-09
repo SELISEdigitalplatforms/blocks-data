@@ -9,6 +9,7 @@ using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
+using DataGateway.DomainService.Schemas;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;
@@ -88,7 +89,7 @@ public class SchemaConfigurationServiceTests
             SchemaVersionTracker.DefaultPollInterval, NullLogger<SchemaVersionTracker>.Instance);
 
         var publishService = new SchemaPublishService(
-            Builder(), new SchemaSnapshotStore(repository), versionStore, repository, NullLogger<SchemaPublishService>.Instance);
+            new SchemaAssembler(repository), new GraphQLPublishedSchemaValidator(Builder()), new SchemaSnapshotStore(repository), versionStore, repository, new EntityViewStore(repository), NullLogger<SchemaPublishService>.Instance);
 
         var service = new SchemaConfigurationService(
             Builder(),

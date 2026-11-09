@@ -17,6 +17,7 @@ import { useNavigate } from "react-router";
 import { IRole } from "@blocks-idp/iam/models/role";
 import { FilterControls, SortValue } from "@/components/filter-toolbar";
 import { useRolesSortQueryParams } from "./roles-filter-toolbar";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type RolesTableProps = {
   roles: IRole[];
@@ -32,6 +33,7 @@ const LoadingSkelton = () => (
 );
 
 export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
+  const { t } = useT("data.idp.iam");
   const { sortQueryParams, setSortQueryParams } = useRolesSortQueryParams();
   const [selectedRole, setSelectedRole] = useState<IRole | null>(null);
   const navigate = useNavigate();
@@ -51,7 +53,7 @@ export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
         header: () => (
           <FilterControls.SortHeader
             id="Name"
-            label="Name"
+            label={t("common:NAME")}
             value={sortQueryParams}
             onChange={sortHandler}
           />
@@ -64,7 +66,7 @@ export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
         header: () => (
           <FilterControls.SortHeader
             id="Slug"
-            label="Slug"
+            label={t("ROLES_LIST.SLUG")}
             value={sortQueryParams}
             onChange={sortHandler}
           />
@@ -83,7 +85,7 @@ export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
         header: () => (
           <FilterControls.SortHeader
             id="Count"
-            label="Permissions"
+            label={t("ROLES_LIST.PERMISSIONS")}
             value={sortQueryParams}
             onChange={sortHandler}
           />
@@ -95,7 +97,7 @@ export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
         accessorFn: (row) => `${row.description}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Description</span>
+            <span className="font-bold text-medium-emphasis">{t("common:DESCRIPTION")}</span>
           </div>
         ),
         cell: (roles) => (
@@ -122,7 +124,7 @@ export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
         ),
       },
     ],
-    [sortHandler, sortQueryParams],
+    [sortHandler, sortQueryParams, t],
   );
 
   const table = useReactTable({
@@ -162,7 +164,7 @@ export const RolesList = ({ roles, isLoading }: RolesTableProps) => {
                 colSpan={columns.length}
                 className="h-24 text-center text-muted-foreground"
               >
-                No roles found. Please create new roles.
+                {t("ROLES_LIST.NO_ROLES_FOUND_PLEASE_CREATE_NEW")}
               </TableCell>
             </TableRow>
           ) : (

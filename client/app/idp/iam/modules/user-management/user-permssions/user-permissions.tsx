@@ -7,6 +7,7 @@ import { AddUserPermission } from "./add-user-permission";
 import { Button } from "@/components/ui-kits/button/button";
 import { toast } from "@/hooks/use-toast";
 import { IPermission } from "@blocks-idp/iam/models/permission";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserPermissionsProps = {
   userId: string;
@@ -14,6 +15,7 @@ type UserPermissionsProps = {
 };
 
 export function UserPermissions({ userId, projectKey }: UserPermissionsProps) {
+  const { t } = useT("data.idp.iam");
   const { permissions, isLoading, deletePermissions } = useUserPermissions({ userId, projectKey });
 
   const [localPermissions, setLocalPermissions] = useState<IPermission[]>([]);
@@ -45,21 +47,21 @@ export function UserPermissions({ userId, projectKey }: UserPermissionsProps) {
       if (res.isSuccess) {
         toast({
           variant: "success",
-          title: "Success",
-          description: "Permissions updated successfully",
+          title: t("common:SUCCESS"),
+          description: t("USER_PERMISSIONS.PERMISSIONS_UPDATED_SUCCESSFULLY"),
         });
       } else {
         toast({
           variant: "destructive",
-          title: "Error",
-          description: res.errors as string || "Something went wrong",
+          title: t("common:ERROR"),
+          description: res.errors as string || t("USER_PERMISSIONS.SOMETHING_WENT_WRONG"),
         });
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: `Something went wrong | ${JSON.stringify(error)}`,
+        title: t("common:ERROR"),
+        description: t("USER_PERMISSIONS.SOMETHING_WENT_WRONG_DETAIL", { detail: JSON.stringify(error) }),
       });
     } finally {
       setIsSaving(false);
@@ -71,15 +73,15 @@ export function UserPermissions({ userId, projectKey }: UserPermissionsProps) {
       <div className="flex w-full flex-col">
         <Card>
           <CardHeader className="flex flex-row! items-center justify-between">
-            <CardTitle>Permissions</CardTitle>
+            <CardTitle>{t("USER_PERMISSIONS.PERMISSIONS")}</CardTitle>
             <div className="flex gap-2">
               {!!removedResources.length && (
                 <>
                   <Button variant="outline" onClick={onReset} disabled={isSaving || (!removedResources.length && localPermissions.length === permissions.length)}>
-                    Reset
+                    {t("common:RESET")}
                   </Button>
                   <Button variant="outline" onClick={onSave} disabled={isSaving || !removedResources.length}>
-                    {isSaving ? "Saving..." : "Save"}
+                    {isSaving ? t("USER_PERMISSIONS.SAVING") : t("common:SAVE")}
                   </Button>
                 </>
               )}

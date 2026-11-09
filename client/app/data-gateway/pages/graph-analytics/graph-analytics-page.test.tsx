@@ -75,6 +75,8 @@ const ANALYTICS: IGraphLogAnalyticsData = {
       totalBytes: 26624,
       averageDocumentCount: 250,
       maxDocumentCount: 500,
+      restCount: 4,
+      graphQLCount: 6,
     },
   ],
   failureStats: [
@@ -177,6 +179,7 @@ describe("GraphAnalytics", () => {
       utcOffsetMinutes,
       false,
       true,
+      undefined,
     );
   });
 
@@ -246,6 +249,35 @@ describe("GraphAnalytics", () => {
     expect(toggle).toBeChecked();
     expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(true);
     expect(screen.getByTestId("history")).toHaveAttribute("data-include-blocks-console", "true");
+  });
+
+  it("sends the page-level transport filter with the analytics request", async () => {
+    const user = userEvent.setup();
+    renderAnalytics();
+
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(6)).toBeUndefined();
+
+    await user.click(screen.getByRole("combobox", { name: "Transport" }));
+    await user.click(await screen.findByRole("option", { name: "REST" }));
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(6)).toBe("rest");
+
+    await user.click(screen.getByRole("combobox", { name: "Transport" }));
+    await user.click(await screen.findByRole("option", { name: "GraphQL" }));
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(6)).toBe("graphql");
+
+    await user.click(screen.getByRole("combobox", { name: "Transport" }));
+    await user.click(await screen.findByRole("option", { name: "All transports" }));
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(6)).toBeUndefined();
+  });
+
+  it("leaves the transport filter to the request log on the Requests tab", async () => {
+    const user = userEvent.setup();
+    renderAnalytics();
+
+    await openTab(user, "Requests");
+
+    // The log has its own Transport filter; the page one only feeds the analytics tabs.
+    expect(screen.queryByRole("combobox", { name: "Transport" })).not.toBeInTheDocument();
   });
 
   it("offers a bucket size only where something is bucketed over time", async () => {
@@ -319,7 +351,7 @@ describe("GraphAnalytics", () => {
       within(operationRow)
         .getAllByRole("cell")
         .map((cell) => cell.textContent),
-    ).toEqual(["getBlxDrives", "10", "6", "3", "1", "780 ms", "1.54 s"]);
+    ).toEqual(["getBlxDrives", "10", "4", "6", "6", "3", "1", "780 ms", "1.54 s"]);
   });
 
   it("separates requests the gateway refused from requests that broke", () => {

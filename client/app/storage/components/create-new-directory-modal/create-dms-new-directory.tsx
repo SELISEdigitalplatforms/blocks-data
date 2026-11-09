@@ -30,16 +30,19 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { cn } from "@/lib/utils";
 import { FolderPlus, LoaderCircle } from "lucide-react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
-const createDirectorySchema = z.object({
-  name: z.string().min(1, "Directory name is required"),
+const DATA_STORAGE_MODULE = "data.storage";
+
+const createDirectorySchema = z.lazy(() => z.object({
+  name: z.string().min(1, tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.DIRECTORY_NAME_IS_REQUIRED")),
   objectAccessLevel: z.union([z.literal("Creator"), z.literal("Organization"), z.literal("")]),
-});
+}));
 
 const GENERAL_ACCESS_OPTIONS = [
-  { value: "", label: "Default (unrestricted until shared)" },
-  { value: "Creator", label: "Only me, until I share it" },
-  { value: "Organization", label: "Anyone in my organization" },
+  { value: "", get label() { return tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
+  { value: "Creator", get label() { return tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.ONLY_ME_UNTIL_I_SHARE_IT"); } },
+  { value: "Organization", get label() { return tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.ANYONE_IN_MY_ORGANIZATION"); } },
 ] as const;
 
 type CreateDirectoryFormData = z.infer<typeof createDirectorySchema>;
@@ -59,6 +62,7 @@ export const CreateDmsNewDirectory = ({
   configurationName,
   onSuccess,
 }: CreateDmsDirectoryModalProps) => {
+  const { t } = useT(DATA_STORAGE_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const { mutateAsync: createDmsDirectoryMutate, isPending } = useCreateDmsDirectory();
   const form = useForm<CreateDirectoryFormData>({
@@ -88,14 +92,14 @@ export const CreateDmsNewDirectory = ({
       const payload: CreateDirectoryDto = {
         name: data.name,
         parentDirectoryId: parentId || undefined,
-        description: "Directory creation",
+        description: t("CREATE_DMS_NEW_DIRECTORY.DIRECTORY_CREATION"),
         configurationName,
         projectKey,
         objectAccessLevel: data.objectAccessLevel || undefined,
       };
 
       await createDmsDirectoryMutate(payload);
-      showSuccessToast({ description: "Directory created successfully." });
+      showSuccessToast({ description: t("CREATE_DMS_NEW_DIRECTORY.DIRECTORY_CREATED_SUCCESSFULLY") });
 
       form.reset();
       handleOpenChange(false);
@@ -122,9 +126,9 @@ export const CreateDmsNewDirectory = ({
               <FolderPlus className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <DialogTitle>Create Directory</DialogTitle>
+              <DialogTitle>{t("CREATE_DMS_NEW_DIRECTORY.CREATE_DIRECTORY")}</DialogTitle>
               <DialogDescription>
-                Keep related files together with a clear, descriptive name.
+                {t("CREATE_DMS_NEW_DIRECTORY.KEEP_RELATED_FILES_TOGETHER_WITH_A")}
               </DialogDescription>
             </div>
           </div>
@@ -141,10 +145,10 @@ export const CreateDmsNewDirectory = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Directory name</FormLabel>
+                  <FormLabel>{t("CREATE_DMS_NEW_DIRECTORY.DIRECTORY_NAME")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Enter directory name"
+                      placeholder={t("CREATE_DMS_NEW_DIRECTORY.ENTER_DIRECTORY_NAME")}
                       disabled={isPending}
                       autoFocus
                       {...field}
@@ -159,11 +163,10 @@ export const CreateDmsNewDirectory = ({
               name="objectAccessLevel"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Default access</FormLabel>
-                  <div
-                    role="group"
-                    aria-label="Default access"
-                    className="inline-flex overflow-hidden rounded-sm border border-input"
+                  <FormLabel>{t("CREATE_DMS_NEW_DIRECTORY.DEFAULT_ACCESS")}</FormLabel>
+                  <fieldset
+                    aria-label={t("CREATE_DMS_NEW_DIRECTORY.DEFAULT_ACCESS")}
+                    className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
                   >
                     {GENERAL_ACCESS_OPTIONS.map((o) => {
                       const active = field.value === o.value;
@@ -185,7 +188,7 @@ export const CreateDmsNewDirectory = ({
                         </button>
                       );
                     })}
-                  </div>
+                  </fieldset>
                   <FormMessage />
                 </FormItem>
               )}
@@ -197,17 +200,17 @@ export const CreateDmsNewDirectory = ({
                 className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground"
               >
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Creating directory…
+                {t("CREATE_DMS_NEW_DIRECTORY.CREATING_DIRECTORY")}
               </div>
             ) : null}
             <DialogFooter className="-mx-6 -mb-5 mt-6 border-t bg-muted/20 px-6 py-4 sm:gap-2">
               <DialogClose asChild>
                 <Button variant="outline" disabled={isPending}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogClose>
               <Button type="submit" variant="default" disabled={!isValid || isPending}>
-                {isPending ? "Creating…" : "Create"}
+                {isPending ? "Creating…" : t("common:CREATE")}
               </Button>
             </DialogFooter>
           </form>

@@ -1,6 +1,6 @@
 # Blocks Data
 
-Blocks Data is the data service of the SELISE Blocks platform. It covers two domains:
+This repository hosts the Data Gateway service. Blocks Data is the data service of the SELISE Blocks platform. It covers two domains:
 
 - **Data Gateway**: schema-driven structured data on MongoDB. Users define schemas (entities and reusable objects, with field types including enums), and the service exposes each project's data through a per-tenant GraphQL API with row-level and column-level access control (RLS/CLS), per-operation access lists, field validation rules and defaults, indexes, mock data generation, schema import/export, and a query log. Schema changes are drafted and published, and after a rollback the designer shows what is live next to the drafts. Schema, access policy, storage and bulk changes send built-in notifications.
 - **Storage**: unstructured file storage and document management (DMS) over multiple back ends (Azure Blob, AWS S3 and S3-compatible services, SFTP), including pre-signed upload/download URLs, file versioning, and nested folders. Folders and files carry per-resource access policies scoped to users, roles, organizations or everyone, with inheritance from the parent and a per-resource override. Listings are access-resolved and cursor-paginated, so a caller sees only what they may view. Standard document-management features are included: search, a trash with restore, copy and move, and an audit trail of every access decision.

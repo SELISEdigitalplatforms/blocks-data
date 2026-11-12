@@ -140,7 +140,7 @@ function RelativeNowEditor({
               key={option}
               type="button"
               aria-pressed={sign === option}
-              aria-label={option === 1 ? "plus" : "minus"}
+              aria-label={option === 1 ? t("RULE_VALUE_INPUTS.PLUS") : t("RULE_VALUE_INPUTS.MINUS")}
               onClick={() => {
                 setSign(option);
                 write({ sign: option });

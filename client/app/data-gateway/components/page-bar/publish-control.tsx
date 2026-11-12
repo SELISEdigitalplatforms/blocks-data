@@ -34,7 +34,7 @@ const formatPublishedDate = (value: string) => {
 const describeVersion = (version: ISchemaVersionSummary) => {
   const date = formatPublishedDate(version.publishedDate);
   if (version.kind === "Bootstrap") return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "PUBLISH_CONTROL.DATE_FIRST_VERSION_FROM_DRAFTS", { date });
-  const changes = `${version.changeCount} ${version.changeCount === 1 ? "change" : "changes"}`;
+  const changes = tStatic(DATA_GATEWAY_SCHEMA_MODULE, "PUBLISH_CONTROL.CHANGE_COUNT", { count: version.changeCount });
   return [date, version.publishedBy, changes].filter(Boolean).join(" · ");
 };
 

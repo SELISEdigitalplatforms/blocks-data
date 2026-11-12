@@ -103,10 +103,11 @@ export function TreeToggle({
 
 /** "3 fields" beside an object property's name. */
 export function FieldCount({ count }: Readonly<{ count: number | undefined }>) {
+  const { t } = useT("data.gateway.schema");
   if (!count) return null;
   return (
     <span className="shrink-0 rounded-full border border-border/60 px-1.5 text-[10.5px] leading-4 text-muted-foreground">
-      {count} {count === 1 ? "field" : "fields"}
+      {t("PROPERTY_TREE.FIELD_COUNT", { count })}
     </span>
   );
 }

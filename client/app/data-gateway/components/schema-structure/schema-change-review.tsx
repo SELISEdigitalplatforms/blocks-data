@@ -70,7 +70,7 @@ export function SchemaChangeReview({ diff }: { diff: SchemaDiff }) {
           <p className="text-xs leading-relaxed">
             {removed.length > 0 && (
               <>
-                {t("SCHEMA_CHANGE_REVIEW.REMOVING")} {removed.length === 1 ? t("SCHEMA_CHANGE_REVIEW.A_FIELD") : "fields"} {t("SCHEMA_CHANGE_REVIEW.DELETES_THE_STORED_VALUES")}{" "}
+                {t("SCHEMA_CHANGE_REVIEW.REMOVING")} {removed.length === 1 ? t("SCHEMA_CHANGE_REVIEW.A_FIELD") : t("SCHEMA_CHANGE_REVIEW.FIELDS")} {t("SCHEMA_CHANGE_REVIEW.DELETES_THE_STORED_VALUES")}{" "}
               </>
             )}
             {renamed.length > 0 && (

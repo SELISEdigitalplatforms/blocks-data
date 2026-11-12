@@ -741,7 +741,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               <h3 className="wrap-break-word text-base font-semibold leading-snug text-foreground sm:text-lg">
                 <span className="font-medium">{schemaDetails.schemaName}</span>{" "}
                 {tx("SCHEMA_STRUCTURE.DOESN_T_HAVE_ANY")}{" "}
-                {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : "property"} {tx("SCHEMA_STRUCTURE.YET")}
+                {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : tx("SCHEMA_STRUCTURE.PROPERTY_LOWERCASE")} {tx("SCHEMA_STRUCTURE.YET")}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {tx("SCHEMA_STRUCTURE.NESTED_CHILD_SCHEMAS_CANNOT_BE_EDITED")}
@@ -767,7 +767,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           <div className="space-y-2">
             <h3 className="wrap-break-word px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
               {tx("SCHEMA_STRUCTURE.THIS_SCHEMA_DOESN_T_HAVE_ANY")}{" "}
-              {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : "property"} {tx("SCHEMA_STRUCTURE.YET_CLICK_ADD_PROPERTY_TO_SET")}
+              {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : tx("SCHEMA_STRUCTURE.PROPERTY_LOWERCASE")} {tx("SCHEMA_STRUCTURE.YET_CLICK_ADD_PROPERTY_TO_SET")}
             </h3>
           </div>
           <Button

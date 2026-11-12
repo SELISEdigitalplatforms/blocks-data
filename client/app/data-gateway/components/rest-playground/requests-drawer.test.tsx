@@ -70,7 +70,8 @@ const renderDrawer = () => {
 };
 
 // A live-state label joins the name as "name · label", so match the name as a prefix.
-const entityToggle = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}( ·|$)`) });
+const entityToggle = (name: string) =>
+  screen.getByRole("button", { name: (accessibleName) => accessibleName === name || accessibleName.startsWith(`${name} ·`) });
 
 // Every operation button is named after its own request, e.g. "Use in builder: GET /Employee".
 const USE_BUTTON = { name: /^Use in builder: / };

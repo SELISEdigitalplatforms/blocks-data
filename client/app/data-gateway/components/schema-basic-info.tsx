@@ -24,7 +24,7 @@ import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { CloudOff, CloudUpload, Database, Eye, MoreVertical, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useT } from "@seliseblocks/genesis-os/i18n";
+import { tStatic, useT } from "@seliseblocks/genesis-os/i18n";
 
 const SCHEMA_BASIC_INFO_SCHEMA_ACCESS = "SCHEMA_BASIC_INFO.SCHEMA_ACCESS";
 
@@ -73,9 +73,9 @@ const schemaFieldsSummary = (
   const systemFieldsCount = isEntity
     ? fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
     : 0;
-  const parts = [`${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`];
+  const parts = [tStatic("data.gateway.schema", "SCHEMA_BASIC_INFO.FIELD_COUNT", { count: customFieldsCount })];
   if (isEntity) parts.push(systemLabel(systemFieldsCount));
-  if (isEntity && indexCount !== undefined) parts.push(`${indexCount} ${indexCount === 1 ? "index" : "indexes"}`);
+  if (isEntity && indexCount !== undefined) parts.push(tStatic("data.gateway.schema", "SCHEMA_BASIC_INFO.INDEX_COUNT", { count: indexCount }));
   return parts.join(" · ");
 };
 

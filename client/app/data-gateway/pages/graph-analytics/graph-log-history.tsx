@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, History } from "lucide-react";
 
 import { Badge } from "@/components/ui-kits/badge/badge";
@@ -29,6 +29,7 @@ import {
   GraphLogHistorySort,
   GraphLogOperationType,
   GraphLogOutcome,
+  GraphLogTransport,
   IGraphLogHistoryItem,
   graphLogOutcome,
 } from "../../models/graph-log-history";
@@ -106,6 +107,7 @@ export const GraphLogHistory = ({
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [operationType, setOperationType] = useState<GraphLogOperationType | typeof ALL>(ALL);
+  const [transport, setTransport] = useState<GraphLogTransport | typeof ALL>(ALL);
   const [outcome, setOutcome] = useState<GraphLogOutcome | typeof ALL>(ALL);
   const [statusCode, setStatusCode] = useState<typeof ALL | string>(ALL);
   const [failureKind, setFailureKind] = useState<GraphLogFailureKind | typeof ALL>(ALL);
@@ -129,6 +131,7 @@ export const GraphLogHistory = ({
     pageNo,
     pageSize,
     operationType: operationType === ALL ? undefined : operationType,
+    transport: transport === ALL ? undefined : transport,
     outcome: outcome === ALL ? undefined : outcome,
     statusCode: statusCode === ALL ? undefined : Number(statusCode),
     failureKind: failureKind === ALL ? undefined : failureKind,
@@ -184,6 +187,23 @@ export const GraphLogHistory = ({
                 <SelectItem value={ALL}>{t("GRAPH_LOG_HISTORY.ALL_TYPES")}</SelectItem>
                 <SelectItem value="query">{t("GRAPH_LOG_HISTORY.QUERY")}</SelectItem>
                 <SelectItem value="mutation">{t("GRAPH_LOG_HISTORY.MUTATION")}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={transport}
+              onValueChange={(value) => {
+                setTransport(value as GraphLogTransport | typeof ALL);
+                setPageNo(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[140px] text-xs" aria-label={t("GRAPH_LOG_HISTORY.TRANSPORT")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("GRAPH_LOG_HISTORY.ALL_TRANSPORTS")}</SelectItem>
+                <SelectItem value="rest">{t("GRAPH_LOG_HISTORY.REST")}</SelectItem>
+                <SelectItem value="graphql">{t("GRAPH_LOG_HISTORY.GRAPHQL")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -267,21 +287,24 @@ export const GraphLogHistory = ({
                     ["source", t("GRAPH_LOG_HISTORY.SOURCE")],
                   ] as const
                 ).map(([field, label]) => (
-                  <SortableTableHead
-                    key={field}
-                    field={field}
-                    label={label}
-                    activeField={sortBy}
-                    descending={sortDescending}
-                    onSort={handleSort}
-                  />
+                  <Fragment key={field}>
+                    <SortableTableHead
+                      field={field}
+                      label={label}
+                      activeField={sortBy}
+                      descending={sortDescending}
+                      onSort={handleSort}
+                    />
+                    {/* The server has no transport sort, so this column is a plain header. */}
+                    {field === "type" && <TableHead>{t("GRAPH_LOG_HISTORY.TRANSPORT")}</TableHead>}
+                  </Fragment>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     {isError
                       ? t("GRAPH_LOG_HISTORY.COULDN_T_LOAD_DATA_PLEASE_TRY")
                       : t("GRAPH_LOG_HISTORY.NO_REQUESTS_IN_THIS_RANGE")}
@@ -317,6 +340,13 @@ export const GraphLogHistory = ({
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {item.operationType || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {item.transport === "rest"
+                            ? t("GRAPH_LOG_HISTORY.REST")
+                            : t("GRAPH_LOG_HISTORY.GRAPHQL")}
+                        </Badge>
                       </TableCell>
                       {/* Just the outcome here — the reason remains available in row details. */}
                       <TableCell title={item.failureMessage || undefined}>

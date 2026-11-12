@@ -5,6 +5,7 @@ using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Services;
+using DataGateway.Rest;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Utilities;
@@ -49,6 +50,10 @@ builder.Services.Configure<MvcOptions>(options =>
     options.Conventions.Insert(0, new GlobalApiRoutePrefixConvention("api"));
 });
 
+// {entity:schemaName} on the Data Gateway REST routes: only a name a schema can have reaches the controller.
+builder.Services.Configure<RouteOptions>(options =>
+    options.ConstraintMap[Api.Controllers.SchemaNameRouteConstraint.Name] = typeof(Api.Controllers.SchemaNameRouteConstraint));
+
 var wwwrootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(wwwrootPath);
 
@@ -59,6 +64,8 @@ cloudSecret.ChatGptEncryptedSecret = builder.Configuration["ChatGptEncryptedSecr
 cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"];
 
 services.AddDataGatewayDomainServices();
+services.AddDataGatewayGraphQL();
+services.AddDataGatewayRest(builder.Configuration);
 services.AddStorageDomainServices();
 
 var app = builder.Build();
@@ -76,10 +83,13 @@ app.UseStaticFiles();
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 if (File.Exists(indexHtml))
 {
-    app.MapFallbackToFile("/index.html");
+    // Not under the REST routes: there an unmatched path is the router's 404, which gets a problem body below.
+    app.MapFallbackToFile(Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern, "/index.html");
 }
 
 app.UseMiddleware<RequestContextMiddleware>();
+// The router answers under the REST routes with an empty 404, 405 or 415; this gives it the problem body.
+app.UseMiddleware<Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware>();
 
 app.MapControllers();
 
@@ -133,6 +143,7 @@ static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string we
         ["__BLOCKS_STUDIO_CALLBACK_URL__"] = section["BLOCKS_STUDIO_CALLBACK_URL"],
         ["__BLOCKS_DATA_IMPORT_SAMPLE_FILE__"] = section["BLOCKS_DATA_IMPORT_SAMPLE_FILE"],
         ["__BLOCKS_GRAPHQL_PUBLIC_URL__"] = section["BLOCKS_GRAPHQL_PUBLIC_URL"],
+        ["__BLOCKS_GRAPHQL_DEPRECATED_SINCE__"] = FrontendRuntimeValues.GraphQLDeprecatedSince(configuration),
         ["__BLOCKS_IAM_CLIENT_ID__"] = section["BLOCKS_IAM_CLIENT_ID"],
         ["__BLOCKS_DATA_CLIENT_ID__"] = section["BLOCKS_DATA_CLIENT_ID"],
         ["__BLOCKS_LOCALIZATION_CLIENT_ID__"] = section["BLOCKS_LOCALIZATION_CLIENT_ID"],

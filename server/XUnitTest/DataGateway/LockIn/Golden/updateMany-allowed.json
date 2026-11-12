@@ -1,0 +1,173 @@
+{
+  "response": {
+    "data": {
+      "updateManyProduct": {
+        "acknowledged": true,
+        "itemId": null,
+        "totalImpactedData": 2,
+        "message": null
+      }
+    }
+  },
+  "mongoAfter": {
+    "Notes": [
+      {
+        "IsDeleted": false,
+        "ItemId": "n1",
+        "Text": "Hello",
+        "_id": "n1"
+      }
+    ],
+    "Products": [
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8000"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p1",
+        "LastUpdatedBy": "u1",
+        "LastUpdatedDate": "<now>",
+        "Location": {
+          "coordinates": [
+            8.5417000000000005,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 10.5,
+        "Secret": "s-one",
+        "Status": "Draft",
+        "Stock": 1,
+        "Tags": [
+          "red",
+          "new"
+        ],
+        "Title": "Alpha",
+        "_id": "p1"
+      },
+      {
+        "Address": {
+          "City": "Lucerne",
+          "Zip": "6000"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p2",
+        "LastUpdatedBy": "u1",
+        "LastUpdatedDate": "<now>",
+        "Location": {
+          "coordinates": [
+            8.3093000000000004,
+            47.050199999999997
+          ],
+          "type": "Point"
+        },
+        "Owner": "u2",
+        "Price": 20.0,
+        "Secret": "s-two",
+        "Status": "Draft",
+        "Stock": 1,
+        "Tags": [
+          "blue"
+        ],
+        "Title": "Bravo",
+        "_id": "p2"
+      },
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8004"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p3",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.5816999999999997,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 30.25,
+        "Secret": "s-three",
+        "Status": "Live",
+        "Stock": 12,
+        "Tags": [],
+        "Title": "Charlie",
+        "_id": "p3"
+      }
+    ]
+  },
+  "events": [
+    {
+      "CollectionName": "Products",
+      "Data": null,
+      "Kind": "Publish",
+      "Operation": "Updated",
+      "SchemaName": "Product",
+      "UpdatedDocuments": [
+        {
+          "DocumentId": "p1",
+          "UpdatedFields": [
+            {
+              "FieldName": "Stock",
+              "NewValue": "1",
+              "OldValue": null
+            },
+            {
+              "FieldName": "LastUpdatedDate",
+              "NewValue": "<now>",
+              "OldValue": null
+            },
+            {
+              "FieldName": "LastUpdatedBy",
+              "NewValue": "u1",
+              "OldValue": null
+            }
+          ]
+        },
+        {
+          "DocumentId": "p2",
+          "UpdatedFields": [
+            {
+              "FieldName": "Stock",
+              "NewValue": "1",
+              "OldValue": null
+            },
+            {
+              "FieldName": "LastUpdatedDate",
+              "NewValue": "<now>",
+              "OldValue": null
+            },
+            {
+              "FieldName": "LastUpdatedBy",
+              "NewValue": "u1",
+              "OldValue": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "operationTags": {
+    "SchemaName": "updateManyProduct",
+    "EntityName": "Product",
+    "CollectionName": "Products",
+    "OperationType": "mutation",
+    "OperationQuery": "mutation {\n  updateManyProduct(where: { Status: { eq: Draft } }, input: { Stock: 1 }) {\n    acknowledged\n    itemId\n    totalImpactedData\n    message\n  }\n}",
+    "MongoQuery": "{ \"filter\" : { \"Status\" : { \"$eq\" : \"Draft\" } }, \"update\" : { \"Stock\" : 1, \"LastUpdatedDate\" : { \"$date\" : \"<now>\" }, \"LastUpdatedBy\" : \"u1\" } }",
+    "ResponseStatus": "success",
+    "FailureKind": "",
+    "FailureCode": "",
+    "FailureMessage": "",
+    "ResponseSize": 126,
+    "DocumentCount": 2,
+    "InAppRequest": true,
+    "IsIntrospection": false
+  }
+}

@@ -1,31 +1,16 @@
 using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis.DataAccess;
-using HotChocolate.Resolvers;
 using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Helpers;
 
 /// <summary>
-/// GraphQL-facing projection helper. Extracts the requested fields from the resolver context and hands
-/// them to <see cref="ClsProjectionHelper"/>, which owns the CLS projection logic. The remaining members
-/// forward to it so existing callers keep compiling.
+/// Projection helper. Its members forward to <see cref="ClsProjectionHelper"/>, which owns the CLS projection
+/// logic, so existing callers keep compiling. The resolver-context overload lives in <c>GraphQLQueryProjectionHelper</c>.
 /// </summary>
 public static class QueryProjectionHelper
 {
-    /// <summary>
-    /// Builds the MongoDB projection including protected fields and rule operand fields for CLS evaluation.
-    /// </summary>
-    public static BsonDocument BuildMongoProjectionWithCls(
-        AccessPrincipal principal,
-        IResolverContext resolverContext,
-        SchemaDefinitionExtended schema,
-        out HashSet<string> evaluationOnlyFieldPaths)
-    {
-        var projection = resolverContext.MapQueryProjection();
-        return ClsProjectionHelper.ApplyReadClsPolicies(principal, projection, schema, out evaluationOnlyFieldPaths);
-    }
-
     public static bool PolicyCoversAnyRequestedField(DataAccessPolicy policy, HashSet<string> requestedFieldPaths) =>
         ClsProjectionHelper.PolicyCoversAnyRequestedField(policy, requestedFieldPaths);
 
@@ -48,8 +33,8 @@ public static class QueryProjectionHelper
         ClsProjectionHelper.TryAddSchemaFieldToProjection(projection, requestedFieldPaths, evaluationOnlyFieldPaths, source, fieldPath);
 
     /// <summary>
-    /// HotChocolate-free overload used by the REST gateway: builds the projection from an
-    /// explicit list of requested fields instead of a resolver context.
+    /// Builds the projection from an explicit list of requested fields, including protected fields and rule
+    /// operand fields for CLS evaluation.
     /// </summary>
     public static BsonDocument BuildMongoProjectionWithCls(
         AccessPrincipal principal,

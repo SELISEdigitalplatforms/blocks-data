@@ -6,9 +6,9 @@ import { useGetProject } from "@/hooks/use-project";
 import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
-import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";
+import { Keyboard, Play } from "lucide-react";
 import type { editor, IDisposable, languages, Position } from "monaco-editor";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useExecuteGraphQL,
   useGraphQLIntrospection,
@@ -31,33 +31,12 @@ import {
   resolveInputObjectTypeAtCursor,
   type IntrospectionSuggestion,
 } from "../../utils/introspection-utils";
-import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";
 import { useT } from "@seliseblocks/genesis-os/i18n";
+import { PlaygroundMonacoEditor as GraphqlMonacoEditor } from "../playground/monaco-editor";
 
 const GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME = "GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME";
 const GRAPHQL_PLAYGROUND_PAGE_RESPONSE = "GRAPHQL_PLAYGROUND_PAGE.RESPONSE";
-
-const MonacoEditorLazy = lazy(async () => {
-  await import("./monaco-local");
-  const mod = await import("@monaco-editor/react");
-  return { default: mod.default };
-});
-
-function MonacoEditorFallback() {
-  const { t } = useT("data.gateway.schema");
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      {t("GRAPHQL_PLAYGROUND_PAGE.LOADING_EDITOR")}
-    </div>
-  );
-}
-
-const GraphqlMonacoEditor = (props: EditorProps) => (
-  <Suspense fallback={<MonacoEditorFallback />}>
-    <MonacoEditorLazy {...props} />
-  </Suspense>
-);
 
 interface ResponseTab {
   id: string;
@@ -82,22 +61,24 @@ const fieldSuggestionText = (field: { type: string; isArray?: boolean }, isDto: 
   };
 };
 
-export const GraphQLPlaygroundPage = () => {
+type GraphQLWorkspaceProps = {
+  /** The starting query, from a playground handoff; read once on mount. */
+  initialQuery?: string;
+  /** The Schemas drawer's open state, owned by the playground shell, which renders its button. */
+  schemasOpen: boolean;
+  onSchemasOpenChange: (open: boolean) => void;
+};
+
+/** The GraphQL tab of the playground: query editor and response panels, plus the Schemas drawer. */
+export const GraphQLWorkspace = ({
+  initialQuery,
+  schemasOpen: isSchemasDrawerOpen,
+  onSchemasOpenChange: setIsSchemasDrawerOpen,
+}: GraphQLWorkspaceProps) => {
   const { t } = useT("data.gateway.schema");
-  const [query, setQuery] = useState(() => {
-    if (typeof window !== "undefined") {
-      const storedQuery = localStorage.getItem("graphql-playground-query");
-      if (storedQuery) {
-        localStorage.removeItem("graphql-playground-query");
-        return storedQuery;
-      }
-    }
-    return "";
-  });
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
-  const [isCleanDataModalOpen, setIsCleanDataModalOpen] = useState(false);
-  const [isSchemasDrawerOpen, setIsSchemasDrawerOpen] = useState(false);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const codeLensDisposableRef = useRef<IDisposable | null>(null);
@@ -143,21 +124,20 @@ export const GraphQLPlaygroundPage = () => {
       enabled: !!projectKey,
     });
 
-  const handleFetchSchemas = () => {
-    setIsSchemasDrawerOpen(true);
-  };
-
   const isSchemasDrawerLoading =
     isSchemasDrawerOpen &&
     !!projectShortKey &&
     (isSchemasIntrospectionPending || schemasIntrospectionData === undefined);
 
-  const handleUseQueryFromSchemas = useCallback((queryText: string) => {
-    setQuery(queryText);
-    setIsSchemasDrawerOpen(false);
-    setResponses([]);
-    setActiveResponseTab("");
-  }, []);
+  const handleUseQueryFromSchemas = useCallback(
+    (queryText: string) => {
+      setQuery(queryText);
+      setIsSchemasDrawerOpen(false);
+      setResponses([]);
+      setActiveResponseTab("");
+    },
+    [setIsSchemasDrawerOpen],
+  );
 
   // Fetch introspected schema for accurate autocompletion
   const { data: introspectedSchema } = useGraphQLIntrospection({
@@ -614,19 +594,28 @@ export const GraphQLPlaygroundPage = () => {
     // Store monaco instance globally for later use
     (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco = monaco;
 
+    // Key bindings are actions, not addCommand: addCommand binds globally (no `when` clause) and is never disposed,
+    // so it would fire in the REST editor mounted beside this one. An action's keybinding has a condition scoped to
+    // this editor's id, so it fires only in this editor. Monaco doesn't dispose the binding when the editor goes,
+    // but no other editor has that id, so it can't fire again.
     // Shift+Enter inserts a newline without accepting any active suggestion
-    editorInstance.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () =>
-      editorInstance.trigger("keyboard", "type", { text: "\n" }),
-    );
+    editorInstance.addAction({
+      id: "graphql-playground.insert-newline",
+      label: t("GRAPHQL_PLAYGROUND_PAGE.NEW_LINE"),
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.Enter],
+      run: () => editorInstance.trigger("keyboard", "type", { text: "\n" }),
+    });
 
     // Ctrl+Shift+E → Execute the current query
-    editorInstance.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
-      () => {
+    editorInstance.addAction({
+      id: "graphql-playground.execute",
+      label: t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE"),
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
+      run: () => {
         const executeBtn = document.getElementById("graphql-execute-btn");
         if (executeBtn) executeBtn.click();
       },
-    );
+    });
 
     // Mark Monaco as ready
     setIsMonacoReady(true);
@@ -1502,53 +1491,6 @@ export const GraphQLPlaygroundPage = () => {
 
   return (
     <>
-      <div className="relative flex h-full w-full flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
-        {/* Ambient gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
-
-        {/* Top header */}
-        <div className="relative flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-card/80 px-3 py-2 sm:px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500/10 ring-1 ring-indigo-500/20">
-              <svg viewBox="0 0 30 30" className="h-3.5 w-3.5 text-indigo-400" fill="currentColor">
-                <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z" />
-                <circle cx="15" cy="1.833" r="2.5" />
-                <circle cx="28.667" cy="9.5" r="2.5" />
-                <circle cx="28.667" cy="20.5" r="2.5" />
-                <circle cx="15" cy="28.167" r="2.5" />
-                <circle cx="1.333" cy="20.5" r="2.5" />
-                <circle cx="1.333" cy="9.5" r="2.5" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-semibold text-foreground">{t("GRAPHQL_PLAYGROUND_PAGE.GRAPHQL_PLAYGROUND")}</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* `outline` rather than `ghost`: ghost has no resting border or
-                background of its own, only a hover state, so paired with
-                muted text it read as a disabled control until the cursor
-                found it — same fix as the validation panel's empty-state CTA. */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleFetchSchemas}
-              disabled={isSchemasDrawerLoading}
-              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-border hover:text-foreground"
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              {t("GRAPHQL_PLAYGROUND_PAGE.SCHEMAS")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsCleanDataModalOpen(true)}
-              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-rose-500/30 hover:text-rose-500"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t("GRAPHQL_PLAYGROUND_PAGE.CLEAN_TEST_DATA")}
-            </Button>
-          </div>
-        </div>
-
         {/* Stacked on phones, with a gap so Response reads as its own panel
             rather than running straight on from the editor's empty space. */}
         <div className="relative flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-0">
@@ -1727,10 +1669,6 @@ export const GraphQLPlaygroundPage = () => {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Clean Test Data Modal */}
-      <CleanTestDataModal open={isCleanDataModalOpen} onOpenChange={setIsCleanDataModalOpen} />
 
       {/* Schemas Introspection Drawer */}
       <SchemasDrawer

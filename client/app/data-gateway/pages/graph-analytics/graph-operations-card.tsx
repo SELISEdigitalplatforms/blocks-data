@@ -42,6 +42,8 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
           <TableRow>
             <TableHead>{t("GRAPH_OPERATIONS_CARD.SCHEMA")}</TableHead>
             <TableHead>{t("GRAPH_OPERATIONS_CARD.CALLS")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.REST")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.GRAPHQL")}</TableHead>
             <TableHead>{t("GRAPH_OPERATIONS_CARD.ALLOWS")}</TableHead>
             <TableHead>{t("GRAPH_OPERATIONS_CARD.DENIES")}</TableHead>
             <TableHead>{t("GRAPH_OPERATIONS_CARD.ERRORS")}</TableHead>
@@ -52,7 +54,7 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
         <TableBody>
           {operationStats.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">
+              <TableCell colSpan={9} className="text-center text-muted-foreground">
                 {emptyMessage(isError)}
               </TableCell>
             </TableRow>
@@ -69,6 +71,8 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
                     <span>{stat.calls}</span>
                   </div>
                 </TableCell>
+                <TableCell>{stat.restCount}</TableCell>
+                <TableCell>{stat.graphQLCount}</TableCell>
                 {/* Refused on purpose and actually broken are different problems, so the row
                     shows them apart rather than as one "failed" count — in the same colours the
                     outcome tiles and bars above use. */}

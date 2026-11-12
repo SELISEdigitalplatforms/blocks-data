@@ -60,6 +60,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         { "InAppRequest", $"${GatewayOperationAttributePath}.InAppRequest" },
         { "EntityName", $"${GatewayOperationAttributePath}.EntityName" },
         { "OperationType", $"${GatewayOperationAttributePath}.OperationType" },
+        { "Transport", $"${GatewayOperationAttributePath}.Transport" },
         { "PolicyMs", $"${GatewayOperationAttributePath}.PolicyMs" },
         { "ValidationMs", $"${GatewayOperationAttributePath}.ValidationMs" },
         { "DatabaseMs", $"${GatewayOperationAttributePath}.DatabaseMs" },
@@ -366,6 +367,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         return Math.Round(sortedDurations[Math.Clamp(rank, 0, sortedDurations.Count - 1)], 2);
     }
 
+    /// <summary>The transport one flattened analytics projection reads as: "rest", otherwise "graphql".</summary>
+    private static string TransportOf(BsonDocument doc) => GraphLogTransport.Read(GetString(doc, "Transport"));
+
     private static List<GraphLogOperationStat> BuildOperationStats(List<BsonDocument> documents) =>
         documents
             .GroupBy(doc =>
@@ -376,6 +380,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .Select(group =>
             {
                 var calls = group.Count();
+                var restCalls = group.Count(doc => TransportOf(doc) == GraphLogTransport.Rest);
                 var failures = group.Where(HasFailed).ToList();
                 var failed = failures.Count;
                 var denied = failures.Count(doc => GatewayFailureKind.IsDenial(EffectiveFailureKind(doc)));
@@ -385,6 +390,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 {
                     SchemaName = group.Key,
                     Calls = calls,
+                    RestCount = restCalls,
+                    GraphQLCount = calls - restCalls,
                     Success = calls - failed,
                     Failed = failed,
                     Denied = denied,
@@ -567,6 +574,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         if (!string.IsNullOrWhiteSpace(request.EntityName))
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.EntityName", request.EntityName));
 
+        if (BuildTransportFilter(builder, request.Transport) is { } transportFilter)
+            filters.Add(transportFilter);
+
         if (!string.IsNullOrWhiteSpace(request.OperationType))
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.OperationType", request.OperationType));
 
@@ -647,7 +657,27 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         if (!request.IncludeBlocksConsole)
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.InAppRequest", true));
 
+        if (BuildTransportFilter(builder, request.Transport) is { } transportFilter)
+            filters.Add(transportFilter);
+
         return builder.And(filters);
+    }
+
+    /// <summary>
+    /// Narrows to one transport, or returns null for "no filter". "graphql" is everything that is
+    /// not "rest" — including entries with no Transport at all (<c>$ne</c> matches a missing
+    /// field), because those predate the field and were all GraphQL.
+    /// </summary>
+    private static FilterDefinition<BsonDocument>? BuildTransportFilter(
+        FilterDefinitionBuilder<BsonDocument> builder, string? transport)
+    {
+        if (string.IsNullOrWhiteSpace(transport))
+            return null;
+
+        var path = $"{GatewayOperationAttributePath}.Transport";
+        return string.Equals(transport, GraphLogTransport.Rest, StringComparison.OrdinalIgnoreCase)
+            ? builder.Eq(path, GraphLogTransport.Rest)
+            : builder.Ne(path, GraphLogTransport.Rest);
     }
 
     private static FilterDefinition<BsonDocument> BuildDenialFilter(
@@ -799,6 +829,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             OperationName = GetString(doc, "OperationName"),
             StatusDescription = GetString(doc, "StatusDescription"),
             SchemaName = GetString(gatewayOperation, "SchemaName"),
+            Transport = GraphLogTransport.Read(GetString(gatewayOperation, "Transport")),
             EntityName = GetString(gatewayOperation, "EntityName"),
             CollectionName = GetString(gatewayOperation, "CollectionName"),
             OperationType = GetString(gatewayOperation, "OperationType"),

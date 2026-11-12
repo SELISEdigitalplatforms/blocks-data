@@ -5,13 +5,11 @@ using Blocks.Genesis.DataAccess;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
-using HotChocolate.Language;
-using HotChocolate.Resolvers;
 
 namespace DataGateway.DomainService.Helpers;
 
 /// <summary>
-/// GraphQL-facing mutation input helper: parses the input from the resolver context. The path and CLS
+/// Mutation input helper (resolver-context parsing lives in <c>GraphQLMutationInputHelper</c>). The path and CLS
 /// members forward to <see cref="ClsInputHelper"/>, which owns that logic, so existing callers keep compiling.
 /// </summary>
 public static class MutationInputHelper
@@ -85,23 +83,7 @@ public static class MutationInputHelper
     private static bool IsAccessList(SchemaDefinitionExtended schema, string name) =>
         schema.Fields.Any(field => field.Name == name && field.Type == nameof(OperationAccess));
 
-    /// <summary>Parses the mutation input from the resolver context.</summary>
-    public static Dictionary<string, object?> ParseMutationInput(IResolverContext context, InputObjectType inputType)
-    {
-        var inputLiteral = context.ArgumentLiteral<IValueNode>(GraphQlConstant.InputFieldName) as ObjectValueNode;
-        var input = new Dictionary<string, object?>();
-        input.MapMutationInput(inputLiteral, inputType);
-        return input;
-    }
-
-    /// <summary>Returns true if the request asks for hard delete.</summary>
-    public static bool IsHardDeleteRequested(IResolverContext context, InputObjectType inputType)
-    {
-        var input = ParseMutationInput(context, inputType);
-        return input.TryGetValue(GraphQlConstant.HardDeleteFieldName, out var value) && value is bool hardDelete && hardDelete;
-    }
-
     /// <summary>Builds a standard "not found" action response for the given operation.</summary>
     public static ActionResponse ActionResponseNotFound(string operation) =>
-        new ActionResponse { Acknowledged = false, Message = $"No data found to {operation} or you don't have permission to {operation} this record." };
+        new NotFoundActionResponse { Acknowledged = false, Message = $"No data found to {operation} or you don't have permission to {operation} this record." };
 }

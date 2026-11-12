@@ -40,7 +40,7 @@ public class DataGatewayTokenAuthenticator
         _repository = repository;
     }
 
-    public async Task<ClaimsPrincipal?> GetPrincipalFromTokenAsync(HttpRequest request, string tenantId)
+    public virtual async Task<ClaimsPrincipal?> GetPrincipalFromTokenAsync(HttpRequest request, string tenantId)
     {
         var (token, _) = TokenHelper.GetToken(request, _tenants);
         var tenant = _tenants.GetTenantByID(tenantId);

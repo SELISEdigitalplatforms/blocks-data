@@ -39,9 +39,12 @@ import { useBulkOperations } from "../hooks/use-bulk-operations";
 import { useSchemaPreview } from "../hooks/use-schema-preview";
 import { useDtoPreviewMap } from "../hooks/use-dto-preview-map";
 import {
+  usePendingSchemaIds,
   useRawIntrospectionQuery,
   useUpdateSchemaStructure,
 } from "../hooks/use-configuration";
+import { schemaLiveState } from "../utils/schema-live-state";
+import { useRestSchemas } from "./rest-playground/use-rest-schemas";
 import { SchemaDesktopRow } from "./schema-structure/schema-desktop-row";
 import { SchemaMobileCard } from "./schema-structure/schema-mobile-card";
 import { SchemaChangeReview } from "./schema-structure/schema-change-review";
@@ -329,6 +332,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     projectKey,
     enabled: !!projectKey,
   });
+
+  // The preview's REST samples: DTO-typed fields take their children from the project's schemas.
+  const { allSchemas } = useRestSchemas(projectKey);
+  const pendingSchemaIds = usePendingSchemaIds(projectKey);
 
   const bulkOperations = useBulkOperations({
     fields,
@@ -1305,6 +1312,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         rawIntrospection={rawIntrospection}
         isGatewayIntrospectionPending={isGatewayIntrospectionPending}
         isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
+        schemaDetails={schemaDetails}
+        allSchemas={allSchemas}
+        liveState={schemaLiveState(schemaDetails, pendingSchemaIds)}
       />
     </>
   ) : (

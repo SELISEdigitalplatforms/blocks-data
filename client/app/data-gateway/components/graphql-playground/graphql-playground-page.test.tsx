@@ -36,10 +36,6 @@ vi.mock("../../hooks/use-configuration", () => ({
     data: { data: { items: schemaType === "DTO" ? dtoItems : entityItems } },
   }),
 }));
-vi.mock("./clean-test-data-modal", () => ({
-  CleanTestDataModal: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="clean-modal" /> : null,
-}));
 vi.mock("./schemas-drawer", () => ({
   SchemasDrawer: ({ open }: { open: boolean }) =>
     open ? <div data-testid="schemas-drawer" /> : null,
@@ -63,8 +59,8 @@ let codeLensProvider: CodeLensProviderMock | null = null;
 
 function makeMonaco() {
   return {
-    KeyMod: { Shift: 1, CtrlCmd: 2 },
-    KeyCode: { Enter: 3, KeyE: 4 },
+    KeyMod: { Shift: 1024, CtrlCmd: 2048 },
+    KeyCode: { Enter: 3, KeyE: 35 },
     editor: { setModelMarkers: vi.fn() },
     languages: {
       CompletionItemKind: {
@@ -91,6 +87,7 @@ function makeMonaco() {
 function makeEditor() {
   return {
     addCommand: vi.fn(),
+    addAction: vi.fn(() => ({ dispose: vi.fn() })),
     onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
     getModel: () => ({ uri: "model" }),
     trigger: vi.fn(),
@@ -125,7 +122,7 @@ vi.mock("@monaco-editor/react", () => ({
   },
 }));
 
-import { GraphQLPlaygroundPage } from "./graphql-playground-page";
+import { GraphQLWorkspace } from "./graphql-playground-page";
 
 // A model shim that reports the cursor at the end of `text`.
 function makeModel(text: string) {
@@ -138,7 +135,7 @@ function makeModel(text: string) {
 const position = { lineNumber: 1, column: 1 };
 
 async function renderMounted() {
-  render(<GraphQLPlaygroundPage />);
+  render(<GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />);
   // Wait for the lazy Monaco editor to resolve and fire onMount.
   await waitFor(() => expect(completionProvider).not.toBeNull());
 }
@@ -155,22 +152,48 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe("GraphQLPlaygroundPage", () => {
-  it("renders the header and query editor and registers providers on mount", async () => {
+describe("GraphQLWorkspace", () => {
+  it("renders the query editor and registers providers on mount", async () => {
     await renderMounted();
-    expect(screen.getByText("GraphQL Playground")).toBeInTheDocument();
     expect(screen.getByTestId("monaco-query")).toBeInTheDocument();
     expect(completionProvider).toBeTruthy();
     expect(codeLensProvider).toBeTruthy();
   });
 
-  it("loads a stored query from localStorage and clears it", async () => {
-    localStorage.setItem("graphql-playground-query", "query { getFoo }");
+  it("binds its keys with editor-scoped actions, never global addCommand", async () => {
     await renderMounted();
-    await waitFor(() =>
-      expect(screen.getByTestId("monaco-query")).toHaveValue("query { getFoo }"),
+    expect(capturedEditor!.addCommand).not.toHaveBeenCalled();
+    type Descriptor = { id: string; label: string; keybindings: number[]; run: () => void };
+    const actions = capturedEditor!.addAction.mock.calls.map((call) => (call as unknown as [Descriptor])[0]);
+    const byKey = (keybinding: number) => actions.find((a) => a.keybindings.includes(keybinding));
+    const { KeyMod, KeyCode } = capturedMonaco!;
+
+    const newline = byKey(KeyMod.Shift | KeyCode.Enter);
+    expect(newline).toBeDefined();
+    newline!.run();
+    expect(capturedEditor!.trigger).toHaveBeenCalledWith("keyboard", "type", { text: "\n" });
+
+    const execute = byKey(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyE);
+    expect(execute).toBeDefined();
+    const click = vi.fn();
+    const button = document.getElementById("graphql-execute-btn")!;
+    button.addEventListener("click", click);
+    execute!.run();
+    expect(click).toHaveBeenCalledTimes(1);
+
+    for (const action of actions) {
+      expect(action.id).toMatch(/^graphql-playground\./);
+      expect(action.label).not.toBe("");
+    }
+    expect(new Set(actions.map((a) => a.id)).size).toBe(actions.length);
+  });
+
+  it("puts initialQuery into the query editor", async () => {
+    render(
+      <GraphQLWorkspace initialQuery="query { getFoo }" schemasOpen={false} onSchemasOpenChange={() => {}} />,
     );
-    expect(localStorage.getItem("graphql-playground-query")).toBeNull();
+    await waitFor(() => expect(completionProvider).not.toBeNull());
+    expect(screen.getByTestId("monaco-query")).toHaveValue("query { getFoo }");
   });
 
   it("executes a single operation and shows the response", async () => {
@@ -242,14 +265,6 @@ describe("GraphQLPlaygroundPage", () => {
     await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
     const sent = executeGraphQL.mock.calls[0][0].query as string;
     expect(sent).toContain("mock-data");
-  });
-
-  it("opens the schemas drawer and clean-data modal from the toolbar", async () => {
-    await renderMounted();
-    fireEvent.click(screen.getByRole("button", { name: "Schemas" }));
-    expect(await screen.findByTestId("schemas-drawer")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clean Test Data" }));
-    expect(await screen.findByTestId("clean-modal")).toBeInTheDocument();
   });
 
   it("reacts to the dark-class MutationObserver by switching theme", async () => {

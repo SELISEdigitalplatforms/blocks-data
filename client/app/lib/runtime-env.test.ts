@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getRuntimeEnv } from "./runtime-env";
+import { getRuntimeEnv, isPlaceholder } from "./runtime-env";
 
 type BlocksWindow = Window & {
   __BLOCKS_ENV__?: Partial<Record<string, string>>;
@@ -99,4 +99,17 @@ describe("getRuntimeEnv", () => {
     expect(getRuntimeEnv("BLOCKS_OS_BASE_URL", { stripPort: true })).toBe("not-a-valid-url");
     expect(warn).toHaveBeenCalled();
   });
+});
+
+describe("isPlaceholder", () => {
+  it("is true for an unreplaced __BLOCKS_..__ value", () => {
+    expect(isPlaceholder("__BLOCKS_DATA_BASE_URL__")).toBe(true);
+  });
+
+  it.each([undefined, "", "https://example.com", "__BLOCKS_X", "BLOCKS_X__", "__OTHER_X__"])(
+    "is false for %j",
+    (value) => {
+      expect(isPlaceholder(value)).toBe(false);
+    },
+  );
 });

@@ -58,8 +58,17 @@ test.describe("feature: GraphQL playground Monaco lifecycle (#421)", () => {
 
     const sections = page.getByRole("navigation", { name: "Data Gateway sections" });
     const playgroundLink = sections.getByRole("link", { name: "Playground", exact: true });
-    const queryEditor = page.locator(".monaco-editor").first();
-    const responseEditor = page.locator(".monaco-editor").nth(1);
+    // The playground keeps the REST workspace mounted (hidden) beside the GraphQL one and opens
+    // on REST, so only the visible editors are the GraphQL query and response editors.
+    const graphqlTab = page
+      .getByRole("radiogroup", { name: "Protocol" })
+      .getByRole("radio", { name: /^GraphQL/ });
+    const queryEditor = page.locator(".monaco-editor:visible").first();
+    const responseEditor = page.locator(".monaco-editor:visible").nth(1);
+    const openGraphqlTab = async () => {
+      await graphqlTab.click();
+      await expect(graphqlTab).toHaveAttribute("aria-checked", "true");
+    };
 
     await test.step("Open the playground (H1)", async () => {
       await openEnvironment(page);
@@ -67,6 +76,7 @@ test.describe("feature: GraphQL playground Monaco lifecycle (#421)", () => {
       await openDataGateway(page);
       await playgroundLink.click();
       await expect(page).toHaveURL(/\/playground/, { timeout: 15_000 });
+      await openGraphqlTab();
       await expect(queryEditor).toBeVisible({ timeout: 30_000 });
     });
 
@@ -76,6 +86,7 @@ test.describe("feature: GraphQL playground Monaco lifecycle (#421)", () => {
         await expect(page).not.toHaveURL(/\/playground/, { timeout: 15_000 });
         await playgroundLink.click();
         await expect(page).toHaveURL(/\/playground/, { timeout: 15_000 });
+        await openGraphqlTab();
         await expect(queryEditor).toBeVisible({ timeout: 30_000 });
         await expect.poll(() => page.evaluate(() => !!(window as unknown as { monaco?: unknown }).monaco)).toBe(true);
       }

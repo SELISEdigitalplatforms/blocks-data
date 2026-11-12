@@ -100,6 +100,7 @@ export const UserDevicesList = ({ isLoading, data }: DeviceListProps) => {
     [t],
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table's useReactTable() returns non-memoizable functions by design; the React Compiler skipping this component is expected, and avoiding the hook would change behaviour
   const table = useReactTable({
     data,
     columns,

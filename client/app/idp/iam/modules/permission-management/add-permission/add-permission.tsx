@@ -5,7 +5,7 @@ import { useAddPermission } from "@blocks-idp/iam/hooks/use-permission";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { PermissionForm } from "../permission-form";
-import { permissionFormSchemaType } from "../permission-form/utils";
+import { PermissionFormSchemaType } from "../permission-form/utils";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { useNavigate } from "react-router";
@@ -18,7 +18,7 @@ export const AddPermission = () => {
 
   const { isPending, mutateAsync } = useAddPermission();
 
-  const onSubmit = async (data: permissionFormSchemaType) => {
+  const onSubmit = async (data: PermissionFormSchemaType) => {
     try {
       const newPermission: CreatePermissionPayload = {
         ...data,

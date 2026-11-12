@@ -919,7 +919,7 @@
             </summary>
         </member>
         <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.ToWebSocketOrigin(System.String)">
-            <summary>The ws:// or wss:// form of an http(s) origin, or null if it is not one.</summary>
+            <summary>The WebSocket origin (wss scheme for https, ws for http) of an http(s) origin, or null if it is not one.</summary>
         </member>
         <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.Split(System.String)">
             <summary>Space- or comma-separated list, for origins no runtime key describes.</summary>

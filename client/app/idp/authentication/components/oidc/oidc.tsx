@@ -1,11 +1,10 @@
 import { useProjectStore } from "@/store/use-project-store";
-import { GRANT_TYPES } from "@blocks-idp/authentication/constants/authentication.constant";
 import { useGetAuthConfig } from "@blocks-idp/authentication/hooks/use-auth-config";
 import { OidcList } from "./oidc-list";
 
 export const OIDC = () => {
   const { tenantId } = useProjectStore().selectedProject || { tenantId: "" };
-  const { data: authConfig, isLoading } = useGetAuthConfig({ projectKey: tenantId });
+  useGetAuthConfig({ projectKey: tenantId });
 
   return (
     <div>

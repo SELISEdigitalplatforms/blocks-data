@@ -75,6 +75,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
     formState: { isDirty },
   } = form;
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() re-renders on field changes by design; the React Compiler skipping this component is expected, and replacing it (e.g. useWatch) would change re-render behaviour
   const isMultiOrgEnabled = form.watch("isMultiOrgEnabled");
 
   const handleModalOpenChange = (value: boolean) => {

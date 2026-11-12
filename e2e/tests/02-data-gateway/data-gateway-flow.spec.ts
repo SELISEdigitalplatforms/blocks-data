@@ -677,8 +677,10 @@ test.describe("flow: Data Gateway menu", () => {
       });
       await expect(drawerTitle).toBeVisible({ timeout: 15_000 });
 
+      // The rule list shows a regex as its one-line summary in a monospace <span>
+      // (schema-field-validation-panel.tsx; was a <p> before 9db74714).
       const existingPattern = page
-        .locator("p.font-mono")
+        .locator("span.font-mono")
         .filter({
           hasText: "^[A-Z]{2}",
         })
@@ -708,11 +710,11 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(deleteRowButton).toBeVisible({ timeout: 5_000 });
       await deleteRowButton.click();
 
-      const deleteDialog = page
-        .getByRole("dialog")
-        .filter({ has: page.getByRole("heading", { name: "Delete validation?" }) });
+      // Deleting asks inline, under the rule, with Keep / Delete (since 767a10ef);
+      // there is no modal "Delete validation?" dialog any more.
+      const deleteDialog = page.getByRole("alertdialog", { name: "Delete this validation?" });
       await expect(deleteDialog).toBeVisible({ timeout: 5_000 });
-      await deleteDialog.getByRole("button", { name: "Cancel" }).click();
+      await deleteDialog.getByRole("button", { name: "Keep" }).click();
       await expect(deleteDialog).toBeHidden({ timeout: 5_000 });
 
       // Close button: the side-panel's close button is named "Close validation inspector"

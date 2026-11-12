@@ -14,7 +14,6 @@ import {
 } from "../../test-utils/__mocks__";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useImpersonateStore } from "@/store/impersonate-store";
-import { useAuthStore } from "@/store/use-auth-store";
 import { impersonationService } from "@/services/impersonation.service";
 
 vi.mock("@/lib/http-client", () => mockHttpClientFactory());

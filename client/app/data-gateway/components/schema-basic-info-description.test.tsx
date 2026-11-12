@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { createWrapper } from "@/test-utils/test-providers/query-client";
 
 /** The schema's description in its header (validation and access rules plan, section 7). */
 
@@ -9,11 +11,17 @@ vi.mock("../hooks/use-configuration", () => ({
   useDeleteSchema: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useSchemaIndexes: () => indexes,
   usePendingSchemaIds: () => new Set(),
+  isSchemaNotFound: () => false,
+  removeSchemaDetails: vi.fn(),
+  refreshSchemaLists: vi.fn(),
 }));
 vi.mock("@seliseblocks/genesis-os", () => ({ useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }) }));
-vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
+vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn(), showErrorToast: vi.fn() }));
 
 import { SchemaBasicInfo } from "./schema-basic-info";
+
+// The delete handler reads the query client.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: createWrapper() });
 
 type Props = Parameters<typeof SchemaBasicInfo>[0];
 const props = (overrides: Partial<Props>) =>

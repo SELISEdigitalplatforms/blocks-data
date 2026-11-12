@@ -268,16 +268,16 @@ test.describe("flow: Data Gateway menu", () => {
         await expect(drawer).toBeHidden({ timeout: 10_000 });
       });
 
-      await test.step("Playground 'Clean Test Data' button opens a modal with description, schema list/empty state, and Cancel/Delete buttons", async () => {
+      await test.step("Playground 'Clean test data' button opens a modal with description, schema list/empty state, and Cancel/Delete buttons", async () => {
         const cleanTestDataButton = page.getByRole("button", {
-          name: "Clean Test Data",
+          name: "Clean test data",
         });
         await expect(cleanTestDataButton).toBeVisible({ timeout: 10_000 });
         await cleanTestDataButton.click();
 
         const dialog = page.getByRole("dialog");
         await expect(dialog).toBeVisible({ timeout: 10_000 });
-        await expect(dialog.getByRole("heading", { name: "Clean Test Data" })).toBeVisible();
+        await expect(dialog.getByRole("heading", { name: "Clean test data" })).toBeVisible();
         await expect(dialog.getByText(/select schemas to delete/i)).toBeVisible();
 
         const selectAll = dialog.getByText(/^Select All/);

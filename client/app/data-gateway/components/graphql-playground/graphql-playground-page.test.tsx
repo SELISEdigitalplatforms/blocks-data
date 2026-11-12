@@ -1,7 +1,8 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect, useRef } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
 import { buildSchema } from "graphql";
+import { registerTranslations, useI18nStore } from "@seliseblocks/genesis-os/i18n";
 
 // ---------------------------------------------------------------------------
 // Hook + store mocks
@@ -36,10 +37,6 @@ vi.mock("../../hooks/use-configuration", () => ({
     data: { data: { items: schemaType === "DTO" ? dtoItems : entityItems } },
   }),
 }));
-vi.mock("./clean-test-data-modal", () => ({
-  CleanTestDataModal: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="clean-modal" /> : null,
-}));
 vi.mock("./schemas-drawer", () => ({
   SchemasDrawer: ({ open }: { open: boolean }) =>
     open ? <div data-testid="schemas-drawer" /> : null,
@@ -61,11 +58,54 @@ let capturedEditor: ReturnType<typeof makeEditor> | null = null;
 let completionProvider: CompletionProviderMock | null = null;
 let codeLensProvider: CodeLensProviderMock | null = null;
 
+// Every Monaco registration the page makes, across mounts, with its disposal state.
+type CommandHandler = (accessor: unknown, ...args: unknown[]) => unknown;
+interface KeybindingRuleMock {
+  keybinding: number;
+  command: string;
+  when?: string;
+}
+interface Registration {
+  kind: "command" | "keybinding" | "codelens" | "completion";
+  id?: string;
+  handler?: CommandHandler;
+  rule?: KeybindingRuleMock;
+  disposed: boolean;
+  dispose: ReturnType<typeof vi.fn>;
+}
+let registrations: Registration[] = [];
+function track(entry: Omit<Registration, "disposed" | "dispose">) {
+  const registration: Registration = { ...entry, disposed: false, dispose: vi.fn() };
+  registration.dispose.mockImplementation(() => {
+    registration.disposed = true;
+  });
+  registrations.push(registration);
+  return { dispose: registration.dispose };
+}
+const ofKind = (kind: Registration["kind"]) => registrations.filter((r) => r.kind === kind);
+const live = (kind: Registration["kind"]) => ofKind(kind).filter((r) => !r.disposed);
+
+// Monaco's command service is one shared instance whose executeCommand lives on the
+// prototype; every editor holds the same object (standaloneServices.js / codeEditorWidget.js).
+class SharedCommandService {
+  executeCommand(_commandId: string, ..._args: unknown[]): Promise<unknown> {
+    return Promise.resolve(undefined);
+  }
+}
+const sharedCommandService = new SharedCommandService();
+const setModelMarkers = vi.fn();
+let codeLensRegistrationError: Error | null = null;
+
 function makeMonaco() {
   return {
     KeyMod: { Shift: 1, CtrlCmd: 2 },
-    KeyCode: { Enter: 3, KeyE: 4 },
-    editor: { setModelMarkers: vi.fn() },
+    KeyCode: { Enter: 4, KeyE: 8 },
+    editor: {
+      setModelMarkers,
+      registerCommand: (id: string, handler: CommandHandler) =>
+        track({ kind: "command", id, handler }),
+      addKeybindingRule: (rule: KeybindingRuleMock) => track({ kind: "keybinding", rule }),
+    },
     languages: {
       CompletionItemKind: {
         Function: 1,
@@ -78,11 +118,12 @@ function makeMonaco() {
       CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
       registerCompletionItemProvider: (_lang: string, provider: unknown) => {
         completionProvider = provider as CompletionProviderMock;
-        return { dispose: vi.fn() };
+        return track({ kind: "completion" });
       },
       registerCodeLensProvider: (_lang: string, provider: unknown) => {
+        if (codeLensRegistrationError) throw codeLensRegistrationError;
         codeLensProvider = provider as CodeLensProviderMock;
-        return { dispose: vi.fn() };
+        return track({ kind: "codelens" });
       },
     },
   };
@@ -94,18 +135,38 @@ function makeEditor() {
     onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
     getModel: () => ({ uri: "model" }),
     trigger: vi.fn(),
-    _commandService: {
-      executeCommand: vi.fn(() => Promise.resolve()),
-    },
+    createContextKey: vi.fn(() => ({ set: vi.fn(), reset: vi.fn(), get: vi.fn() })),
+    _commandService: sharedCommandService,
   };
 }
 
 vi.mock("./monaco-local", () => ({}));
 
+// Options passed to the query editor and to the response editors on the latest render.
+let queryEditorOptions: Record<string, unknown> | undefined;
+// Keyed by mounted response-editor instance, so only editors on screen are listed.
+const responseEditorOptions = new Map<object, Record<string, unknown> | undefined>();
+let capturedOnMount: ((editor: unknown, monaco: unknown) => void) | undefined;
+
 vi.mock("@monaco-editor/react", () => ({
-  default: function MonacoEditorMock(props: { onMount?: (editor: unknown, monaco: unknown) => void; onChange?: (value: string) => void; value?: string }) {
+  default: function MonacoEditorMock(props: {
+    onMount?: (editor: unknown, monaco: unknown) => void;
+    onChange?: (value: string) => void;
+    value?: string;
+    options?: Record<string, unknown>;
+  }) {
     const mounted = useRef(false);
-    const { onMount } = props;
+    const [instance] = useState(() => ({}));
+    const { onMount, onChange, options } = props;
+    useEffect(() => {
+      if (onChange) {
+        queryEditorOptions = options;
+        capturedOnMount = onMount;
+      } else {
+        responseEditorOptions.set(instance, options);
+      }
+    });
+    useEffect(() => () => void responseEditorOptions.delete(instance), [instance]);
     useEffect(() => {
       if (!mounted.current && onMount) {
         mounted.current = true;
@@ -116,16 +177,16 @@ vi.mock("@monaco-editor/react", () => ({
     }, [onMount]);
     return (
       <textarea
-        data-testid={props.onChange ? "monaco-query" : "monaco-response"}
+        data-testid={onChange ? "monaco-query" : "monaco-response"}
         value={props.value ?? ""}
-        readOnly={!props.onChange}
-        onChange={(e) => props.onChange?.(e.target.value)}
+        readOnly={!onChange}
+        onChange={(e) => onChange?.(e.target.value)}
       />
     );
   },
 }));
 
-import { GraphQLPlaygroundPage } from "./graphql-playground-page";
+import { GraphQLWorkspace } from "./graphql-playground-page";
 
 // A model shim that reports the cursor at the end of `text`.
 function makeModel(text: string) {
@@ -138,9 +199,21 @@ function makeModel(text: string) {
 const position = { lineNumber: 1, column: 1 };
 
 async function renderMounted() {
-  render(<GraphQLPlaygroundPage />);
+  render(<GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />);
   // Wait for the lazy Monaco editor to resolve and fire onMount.
   await waitFor(() => expect(completionProvider).not.toBeNull());
+}
+
+const RUN = "graphql-playground.run-operation";
+const NEWLINE = "graphql-playground.insert-newline";
+const EXECUTE = "graphql-playground.execute";
+const CONTEXT_KEY = "graphqlPlaygroundQueryEditor";
+
+// The handler of the live (registered, not yet disposed) command with this id.
+function commandHandler(id: string): CommandHandler {
+  const handler = live("command").find((r) => r.id === id)?.handler;
+  if (!handler) throw new Error(`command ${id} is not registered`);
+  return handler;
 }
 
 beforeEach(() => {
@@ -150,27 +223,32 @@ beforeEach(() => {
   codeLensProvider = null;
   capturedMonaco = null;
   capturedEditor = null;
+  registrations = [];
+  responseEditorOptions.clear();
+  queryEditorOptions = undefined;
+  capturedOnMount = undefined;
+  codeLensRegistrationError = null;
+  // The patch removed by this change would leave an own executeCommand behind; start clean.
+  Reflect.deleteProperty(sharedCommandService, "executeCommand");
   entityItems = [];
   dtoItems = [];
   localStorage.clear();
 });
 
-describe("GraphQLPlaygroundPage", () => {
-  it("renders the header and query editor and registers providers on mount", async () => {
+describe("GraphQLWorkspace", () => {
+  it("renders the query editor and registers providers on mount", async () => {
     await renderMounted();
-    expect(screen.getByText("GraphQL Playground")).toBeInTheDocument();
     expect(screen.getByTestId("monaco-query")).toBeInTheDocument();
     expect(completionProvider).toBeTruthy();
     expect(codeLensProvider).toBeTruthy();
   });
 
-  it("loads a stored query from localStorage and clears it", async () => {
-    localStorage.setItem("graphql-playground-query", "query { getFoo }");
-    await renderMounted();
-    await waitFor(() =>
-      expect(screen.getByTestId("monaco-query")).toHaveValue("query { getFoo }"),
+  it("puts initialQuery into the query editor", async () => {
+    render(
+      <GraphQLWorkspace initialQuery="query { getFoo }" schemasOpen={false} onSchemasOpenChange={() => {}} />,
     );
-    expect(localStorage.getItem("graphql-playground-query")).toBeNull();
+    await waitFor(() => expect(completionProvider).not.toBeNull());
+    expect(screen.getByTestId("monaco-query")).toHaveValue("query { getFoo }");
   });
 
   it("executes a single operation and shows the response", async () => {
@@ -216,6 +294,16 @@ describe("GraphQLPlaygroundPage", () => {
     );
   });
 
+  it("titles the response panel with the single response's name, and Response while empty", async () => {
+    executeGraphQL.mockRejectedValue(new Error("boom"));
+    await renderMounted();
+    expect(screen.getByText("Response")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("monaco-query"), { target: { value: "notanop" } });
+    fireEvent.click(screen.getByRole("button", { name: /Execute/ }));
+    expect(await screen.findByText("Error")).toBeInTheDocument();
+    expect(screen.queryByText("Response")).not.toBeInTheDocument();
+  });
+
   it("executes multiple operations and shows tabs", async () => {
     executeGraphQL.mockResolvedValue({ ok: 1 });
     await renderMounted();
@@ -242,14 +330,6 @@ describe("GraphQLPlaygroundPage", () => {
     await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
     const sent = executeGraphQL.mock.calls[0][0].query as string;
     expect(sent).toContain("mock-data");
-  });
-
-  it("opens the schemas drawer and clean-data modal from the toolbar", async () => {
-    await renderMounted();
-    fireEvent.click(screen.getByRole("button", { name: "Schemas" }));
-    expect(await screen.findByTestId("schemas-drawer")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clean Test Data" }));
-    expect(await screen.findByTestId("clean-modal")).toBeInTheDocument();
   });
 
   it("reacts to the dark-class MutationObserver by switching theme", async () => {
@@ -381,31 +461,84 @@ describe("GraphQLPlaygroundPage", () => {
   });
 
   // ---- CodeLens + per-operation execution ---------------------------------
-  it("provides one CodeLens per parsed operation", async () => {
+  it("provides one CodeLens per parsed operation with the run command and the operation text (E1)", async () => {
     await renderMounted();
-    const model = makeModel("query A {\n  a\n}\nmutation B {\n  b\n}");
-    const result = codeLensProvider.provideCodeLenses(model);
-    expect(result.lenses.length).toBe(2);
-    expect(result.lenses[0].command.id).toBe("run-graphql-operation-0");
+    const model = makeModel("query A {\n  a\n}\nmutation {\n  b\n}");
+    const result = codeLensProvider!.provideCodeLenses(model);
+    expect(result.lenses).toEqual([
+      {
+        range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 },
+        command: { id: RUN, title: '▶ Run query "A"', arguments: ["query A {\n  a\n}"] },
+      },
+      {
+        range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 1 },
+        command: { id: RUN, title: "▶ Run mutation", arguments: ["mutation {\n  b\n}"] },
+      },
+    ]);
     // resolveCodeLens returns the lens unchanged.
-    expect(codeLensProvider.resolveCodeLens(model, result.lenses[0])).toBe(
-      result.lenses[0],
+    expect(codeLensProvider!.resolveCodeLens(model, result.lenses[0])).toBe(result.lenses[0]);
+  });
+
+  it("runs exactly the operation text passed to the run command and shows one Response tab (E2)", async () => {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    await renderMounted();
+    await act(async () => {
+      await commandHandler(RUN)({}, "query A {\n  a\n}");
+    });
+    expect(executeGraphQL).toHaveBeenCalledTimes(1);
+    expect(executeGraphQL).toHaveBeenCalledWith({ projectShortKey: "slug-1", query: "query A {\n  a\n}" });
+    expect(screen.getAllByTestId("monaco-response")).toHaveLength(1);
+    expect(screen.getByTestId("monaco-response")).toHaveValue('{\n  "ok": 1\n}');
+    expect(screen.getByText("Response")).toBeInTheDocument();
+  });
+
+  it("injects the mock-data tag into an insert run from the CodeLens", async () => {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    await renderMounted();
+    await act(async () => {
+      await commandHandler(RUN)({}, 'mutation {\n  insertProduct(input: { name: "x" }) {\n    itemId\n  }\n}');
+    });
+    expect(executeGraphQL.mock.calls[0][0].query).toContain("mock-data");
+  });
+
+  it("ignores a run command without a string operation (E5, C4)", async () => {
+    await renderMounted();
+    const run = commandHandler(RUN);
+    await act(async () => {
+      expect(run({})).toBeUndefined();
+      expect(run({}, 42)).toBeUndefined();
+    });
+    expect(executeGraphQL).not.toHaveBeenCalled();
+    // Nothing was executed, so the empty response placeholder is still shown.
+    expect(screen.getByTestId("monaco-response")).toHaveValue("// Execute a query to see the response");
+  });
+
+  it("shows the error response tab when a CodeLens run fails (C5)", async () => {
+    executeGraphQL.mockRejectedValue(new Error("boom"));
+    await renderMounted();
+    await act(async () => {
+      await expect(commandHandler(RUN)({}, "query A {\n  a\n}")).resolves.toBeUndefined();
+    });
+    expect(screen.getByTestId("monaco-response")).toHaveValue(
+      JSON.stringify({ error: "Error: boom" }, null, 2),
     );
   });
 
-  it("runs a single operation via the CodeLens command service hook", async () => {
-    executeGraphQL.mockResolvedValue({ ok: 1 });
-    await renderMounted();
-    // Populate the operation map first.
-    codeLensProvider.provideCodeLenses(makeModel("query A {\n  a\n}"));
-    await capturedEditor._commandService.executeCommand("run-graphql-operation-0");
-    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
-  });
-
-  it("delegates unknown commands to the original command service", async () => {
-    await renderMounted();
-    const res = await capturedEditor._commandService.executeCommand("some.other.command");
-    expect(res).toBeUndefined();
+  it("drops the quoted name when the translated Unnamed label is used (E4, C9)", async () => {
+    act(() =>
+      registerTranslations("data.gateway.schema", { "GRAPHQL_PLAYGROUND_PAGE.UNNAMED": "[xx] Unnamed" }),
+    );
+    try {
+      await renderMounted();
+      const result = codeLensProvider!.provideCodeLenses(makeModel("query {\n  x\n}"));
+      expect(result.lenses.map((lens) => lens.command.title)).toEqual(["▶ Run query"]);
+      // A one-line operation never closes, so it yields no lens, as before.
+      expect(codeLensProvider!.provideCodeLenses(makeModel("query { x }")).lenses).toEqual([]);
+    } finally {
+      act(() =>
+        registerTranslations("data.gateway.schema", { "GRAPHQL_PLAYGROUND_PAGE.UNNAMED": "Unnamed" }),
+      );
+    }
   });
 
   // ---- injectMockDataTag branches (via execution) -------------------------
@@ -525,5 +658,223 @@ describe("GraphQLPlaygroundPage", () => {
       position,
     );
     expect(Array.isArray(result.suggestions)).toBe(true);
+  });
+});
+
+describe("GraphQLWorkspace Monaco registrations", () => {
+  const ownsExecuteCommand = () => Object.prototype.hasOwnProperty.call(sharedCommandService, "executeCommand");
+  const commandIds = (list: Registration[]) => list.map((r) => r.id);
+
+  it("registers the three commands, then the two keybinding rules, then the CodeLens provider, once (H1)", async () => {
+    await renderMounted();
+    const pageOwned = registrations.filter((r) => r.kind !== "completion");
+    expect(pageOwned.map((r) => (r.kind === "command" ? r.id : r.kind))).toEqual([
+      RUN,
+      NEWLINE,
+      EXECUTE,
+      "keybinding",
+      "keybinding",
+      "codelens",
+    ]);
+    expect(live("command")).toHaveLength(3);
+    expect(live("keybinding")).toHaveLength(2);
+    expect(live("codelens")).toHaveLength(1);
+    expect(live("completion")).toHaveLength(1);
+    expect(capturedEditor!.createContextKey).toHaveBeenCalledTimes(1);
+    expect(capturedEditor!.createContextKey).toHaveBeenCalledWith(CONTEXT_KEY, true);
+    expect(capturedEditor!.addCommand).not.toHaveBeenCalled();
+  });
+
+  it("binds Shift+Enter and Ctrl/Cmd+Shift+E to the query editor's context key", async () => {
+    await renderMounted();
+    const { KeyMod, KeyCode } = capturedMonaco!;
+    expect(live("keybinding").map((r) => r.rule)).toEqual([
+      { keybinding: KeyMod.Shift | KeyCode.Enter, command: NEWLINE, when: CONTEXT_KEY },
+      { keybinding: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyE, command: EXECUTE, when: CONTEXT_KEY },
+    ]);
+  });
+
+  it("inserts a newline into the query editor without executing (H5)", async () => {
+    await renderMounted();
+    commandHandler(NEWLINE)({});
+    expect(capturedEditor!.trigger).toHaveBeenCalledWith("keyboard", "type", { text: "\n" });
+    expect(executeGraphQL).not.toHaveBeenCalled();
+  });
+
+  it("executes every parsed operation through the Execute button (H6)", async () => {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    await renderMounted();
+    fireEvent.change(screen.getByTestId("monaco-query"), {
+      target: { value: "query A {\n  a\n}\nquery B {\n  b\n}" },
+    });
+    await act(async () => {
+      commandHandler(EXECUTE)({});
+    });
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalledTimes(2));
+  });
+
+  it("turns CodeLens off in every response editor and keeps the other options (H9)", async () => {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    const responseOptions = {
+      readOnly: true,
+      minimap: { enabled: false },
+      fontSize: 13,
+      lineNumbers: "on",
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      tabSize: 2,
+      wordWrap: "on",
+      folding: true,
+      codeLens: false,
+    };
+    await renderMounted();
+    // Empty branch.
+    expect([...responseEditorOptions.values()]).toEqual([responseOptions]);
+    // Single-response branch.
+    fireEvent.change(screen.getByTestId("monaco-query"), { target: { value: "query A {\n  a\n}" } });
+    fireEvent.click(screen.getByRole("button", { name: /Execute/ }));
+    await waitFor(() => expect(screen.getByTestId("monaco-response")).toHaveValue('{\n  "ok": 1\n}'));
+    expect([...responseEditorOptions.values()]).toEqual([responseOptions]);
+    // Tabs branch.
+    fireEvent.change(screen.getByTestId("monaco-query"), {
+      target: { value: "query A {\n  a\n}\nquery B {\n  b\n}" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Execute/ }));
+    expect(await screen.findByRole("tab", { name: "Response 2" })).toBeInTheDocument();
+    const tabOptions = [...responseEditorOptions.values()];
+    expect(tabOptions.length).toBeGreaterThanOrEqual(1);
+    for (const options of tabOptions) expect(options).toEqual(responseOptions);
+    // The query editor keeps its CodeLens.
+    expect(queryEditorOptions).toMatchObject({ codeLens: true });
+  });
+
+  it("disposes every page registration on unmount (H10)", async () => {
+    const { unmount } = render(<GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />);
+    await waitFor(() => expect(completionProvider).not.toBeNull());
+    unmount();
+    for (const kind of ["command", "keybinding", "codelens", "completion"] as const) {
+      expect(ofKind(kind).length).toBeGreaterThan(0);
+      expect(live(kind)).toHaveLength(0);
+    }
+  });
+
+  it("runs with the latest project without re-registering (H11)", async () => {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    const { rerender } = render(<GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />);
+    await waitFor(() => expect(completionProvider).not.toBeNull());
+    project.tenantSlug = "slug-2";
+    try {
+      rerender(<GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />);
+      await act(async () => {
+        await commandHandler(RUN)({}, "query A {\n  a\n}");
+      });
+      expect(executeGraphQL).toHaveBeenCalledWith({ projectShortKey: "slug-2", query: "query A {\n  a\n}" });
+      expect(commandIds(ofKind("command"))).toEqual([RUN, NEWLINE, EXECUTE]);
+      expect(ofKind("codelens")).toHaveLength(1);
+    } finally {
+      project.tenantSlug = "slug-1";
+    }
+  });
+
+  it("leaves the shared command service untouched across 5 mounts and runs once afterwards (C1, E3, C10)", async () => {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    for (let i = 0; i < 5; i++) {
+      completionProvider = null;
+      const { unmount } = render(<GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />);
+      await waitFor(() => expect(completionProvider).not.toBeNull());
+      expect(ownsExecuteCommand()).toBe(false);
+      unmount();
+    }
+    expect(ownsExecuteCommand()).toBe(false);
+    expect(sharedCommandService.executeCommand).toBe(SharedCommandService.prototype.executeCommand);
+    const runs = ofKind("command").filter((r) => r.id === RUN);
+    expect(runs).toHaveLength(5);
+    expect(runs.every((r) => r.disposed)).toBe(true);
+    expect(ofKind("codelens")).toHaveLength(5);
+    expect(live("codelens")).toHaveLength(0);
+
+    completionProvider = null;
+    await renderMounted();
+    await act(async () => {
+      await commandHandler(RUN)({}, "query A {\n  a\n}");
+    });
+    expect(executeGraphQL).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-register when translations change while mounted (C2)", async () => {
+    const { bundled, remote } = useI18nStore.getState();
+    try {
+      await renderMounted();
+      act(() => registerTranslations("x.y", { K: "v" }));
+      act(() => useI18nStore.getState().setRemote("xx", "data.gateway.schema", { K: "v" }));
+      expect(ofKind("codelens")).toHaveLength(1);
+      expect(ownsExecuteCommand()).toBe(false);
+      expect(commandIds(ofKind("command"))).toEqual([RUN, NEWLINE, EXECUTE]);
+      expect(ofKind("keybinding")).toHaveLength(2);
+    } finally {
+      // Put the i18n store back as it was, so later tests see the shipped English only.
+      act(() => useI18nStore.setState({ bundled, remote }));
+    }
+  });
+
+  it("owns exactly one set of registrations under StrictMode (C3)", async () => {
+    const { unmount } = render(
+      <StrictMode>
+        <GraphQLWorkspace schemasOpen={false} onSchemasOpenChange={() => {}} />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(completionProvider).not.toBeNull());
+    expect(commandIds(live("command"))).toEqual([RUN, NEWLINE, EXECUTE]);
+    expect(live("keybinding")).toHaveLength(2);
+    expect(live("codelens")).toHaveLength(1);
+    unmount();
+    expect(live("command")).toHaveLength(0);
+    expect(live("keybinding")).toHaveLength(0);
+    expect(live("codelens")).toHaveLength(0);
+  });
+
+  it("logs and disposes what it registered when a registration throws (C7)", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new Error("lens boom");
+    codeLensRegistrationError = failure;
+    try {
+      await renderMounted();
+      await waitFor(() => expect(ofKind("keybinding")).toHaveLength(2));
+      expect(consoleError).toHaveBeenCalledWith("Error registering CodeLens provider:", failure);
+      expect(ofKind("command")).toHaveLength(3);
+      expect(live("command")).toHaveLength(0);
+      expect(live("keybinding")).toHaveLength(0);
+      expect(ofKind("codelens")).toHaveLength(0);
+      expect(screen.getByTestId("monaco-query")).toBeInTheDocument();
+    } finally {
+      codeLensRegistrationError = null;
+      consoleError.mockRestore();
+    }
+  });
+
+  it("never patches the command service, listens to content or sets markers (C8)", async () => {
+    await renderMounted();
+    codeLensProvider!.provideCodeLenses(makeModel("query A {\n  a\n}"));
+    fireEvent.change(screen.getByTestId("monaco-query"), { target: { value: "query B {\n  b\n}" } });
+    expect(capturedEditor!.onDidChangeModelContent).not.toHaveBeenCalled();
+    expect(setModelMarkers).not.toHaveBeenCalled();
+    expect(ownsExecuteCommand()).toBe(false);
+  });
+
+  it("targets the latest editor after a second onMount (C11)", async () => {
+    await renderMounted();
+    const firstEditor = capturedEditor!;
+    const secondEditor = makeEditor();
+    act(() => capturedOnMount!(secondEditor, capturedMonaco));
+    expect(secondEditor.createContextKey).toHaveBeenCalledWith(CONTEXT_KEY, true);
+    commandHandler(NEWLINE)({});
+    expect(secondEditor.trigger).toHaveBeenCalledWith("keyboard", "type", { text: "\n" });
+    expect(firstEditor.trigger).not.toHaveBeenCalled();
+    expect(ofKind("command")).toHaveLength(3);
+  });
+
+  it("keeps window.monaco set to the Monaco namespace (C14)", async () => {
+    await renderMounted();
+    expect((window as unknown as { monaco?: unknown }).monaco).toBe(capturedMonaco);
   });
 });

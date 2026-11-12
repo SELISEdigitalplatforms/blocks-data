@@ -248,7 +248,7 @@ export function SchemaIndexForm({
           disabled={!form.formState.isValid || isPending}
           onClick={() => void form.handleSubmit(onSubmit)()}
         >
-          {isPending ? "Saving…" : t("common:SAVE")}
+          {isPending ? t("SCHEMA_INDEX_FORM.SAVING") : t("common:SAVE")}
         </Button>
       </div>
     </Card>

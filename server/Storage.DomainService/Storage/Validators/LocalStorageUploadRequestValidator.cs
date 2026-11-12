@@ -10,7 +10,9 @@ namespace DomainService.Storage.Validators
         public LocalStorageUploadRequestValidator(IFileDirectoryRepository directoryRepository)
         {
 
+            // One message per property: a blank name reports only "Name is required.".
             RuleFor(x => x.Name)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
                 .WithMessage("Name is required.")
                 .Must(name => Path.HasExtension(name))

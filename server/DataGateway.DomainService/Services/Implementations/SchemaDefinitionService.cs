@@ -488,7 +488,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     {
         var schema = await _repository.GetItemAsync<SchemaDefinition>(id);
         if (schema == null || schema.IsSystemEntity)
-            return new ServiceResponse<SchemaDefinitionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(204);
+            return new ServiceResponse<SchemaDefinitionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(404);
 
         var validations = await _repository.GetItemsAsync<DataValidation>(new BsonDocument { { nameof(DataValidation.SchemaId), schema.ItemId } }, null, null, 0, 1000);
         var allPolicies = await _repository.GetItemsAsync<DataAccessPolicy>(new BsonDocument { { nameof(DataAccessPolicy.SchemaName), schema.SchemaName } }, null, null, 0, 1000);
@@ -907,5 +907,5 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     }
 
     private static ServiceResponse<ActionResponse> SchemaNotFoundResponse() =>
-        new ServiceResponse<ActionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(204);
+        new ServiceResponse<ActionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(404);
 }

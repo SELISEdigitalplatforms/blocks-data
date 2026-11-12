@@ -11,8 +11,11 @@ import { tStatic } from "@seliseblocks/genesis-os/i18n";
 export type TreeGuide = "none" | "through" | "tee" | "end";
 
 export interface NestedTreeRow {
-  /** "field" for a property; "loading" while the parent's children load; "empty" when it has none. */
-  kind: "field" | "loading" | "empty";
+  /**
+   * "field" for a property; "loading" while the parent's children load; "empty" when it has none;
+   * "unavailable" when the parent's schema no longer exists (its details answered 404).
+   */
+  kind: "field" | "loading" | "empty" | "unavailable";
   /** The dotted path from the table's own row, e.g. "Address.Geo.Lat". Unique within the table. */
   path: string;
   /** 1 for a direct child of a table row, 2 for a grandchild, and so on. */
@@ -72,8 +75,8 @@ export interface TreeContext {
   isExpanded: (path: string) => boolean;
   /** The schema a property's type names, if it is an object type. */
   findChild: (type: string | undefined) => ISchemaDetails | undefined;
-  /** The child schema's own properties, or null while they load. */
-  fieldsOf: (schema: ISchemaDetails) => IField[] | null;
+  /** The child schema's own properties, null while they load, or "unavailable" once the schema is found missing. */
+  fieldsOf: (schema: ISchemaDetails) => IField[] | null | "unavailable";
 }
 
 const PLACEHOLDER_FIELD: IField = { name: "", type: "", isArray: false };
@@ -92,7 +95,7 @@ export function nestedRows(
   lastAt: readonly boolean[] = [],
 ): NestedTreeRow[] {
   const own = context.fieldsOf(parent.childSchema);
-  const placeholder = (kind: "loading" | "empty"): NestedTreeRow[] => [
+  const placeholder = (kind: "loading" | "empty" | "unavailable"): NestedTreeRow[] => [
     {
       kind,
       path: `${parent.path}.(${kind})`,
@@ -105,6 +108,7 @@ export function nestedRows(
     },
   ];
   if (own === null) return placeholder("loading");
+  if (own === "unavailable") return placeholder("unavailable");
 
   const fields = mergeFieldsWithParentData(own, parent.field?.fields);
   if (fields.length === 0) return placeholder("empty");

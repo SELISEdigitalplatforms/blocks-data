@@ -292,7 +292,7 @@ export function SchemaDesktopRow({
                       checked={!!selectedRows[field.id]}
                       onCheckedChange={(value) => onRowSelect(field.id, value === true)}
                       disabled={isNewField}
-                      aria-label={t("SCHEMA_DESKTOP_ROW.SELECT_NAME", { name: name || "property" })}
+                      aria-label={t("SCHEMA_DESKTOP_ROW.SELECT_NAME", { name: name || t("SCHEMA_DESKTOP_ROW.PROPERTY") })}
                     />
                   </div>
                 </TooltipTrigger>
@@ -457,7 +457,7 @@ export function SchemaDesktopRow({
                 disabled={!isEditMode || isReadOnly}
               >
                 <SelectTrigger
-                  aria-label={t("SCHEMA_DESKTOP_ROW.ISREQUIRED_FOR_NAME", { name: name || "property" })}
+                  aria-label={t("SCHEMA_DESKTOP_ROW.ISREQUIRED_FOR_NAME", { name: name || t("SCHEMA_DESKTOP_ROW.PROPERTY") })}
                   className={cn("h-9", PROPERTY_FIELD_CLASS)}
                 >
                   <SelectValue />
@@ -689,7 +689,7 @@ export function SchemaDesktopRow({
                   <Button
                     variant="ghost"
                     className="h-5 w-5 p-0"
-                    aria-label={t("SCHEMA_DESKTOP_ROW.MORE_ACTIONS_FOR_NAME", { name: name || "property" })}
+                    aria-label={t("SCHEMA_DESKTOP_ROW.MORE_ACTIONS_FOR_NAME", { name: name || t("SCHEMA_DESKTOP_ROW.PROPERTY") })}
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>

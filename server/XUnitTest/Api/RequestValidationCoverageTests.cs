@@ -26,6 +26,14 @@ public class RequestValidationCoverageTests
         $"{nameof(FileController)}.{nameof(FileController.UpdateFileAdditionalInfo)}",
     ];
 
+    // Data Gateway validators run in the service for most requests; the Graph Log queries have no
+    // service-side validation, so these two actions opt in to the filter for their Transport check.
+    private static readonly string[] GraphLogValidatedByFilter =
+    [
+        $"{nameof(GraphLogController)}.{nameof(GraphLogController.GetHistory)}",
+        $"{nameof(GraphLogController)}.{nameof(GraphLogController.GetAnalytics)}",
+    ];
+
     private static HashSet<Type> StorageValidatedTypes()
     {
         var services = new ServiceCollection();
@@ -55,6 +63,7 @@ public class RequestValidationCoverageTests
             .Where(a => a.GetParameters().Any(p => validated.Contains(p.ParameterType)))
             .Select(Name)
             .Except(ValidatedInService)
+            .Concat(GraphLogValidatedByFilter)
             .Order();
         var decorated = actions
             .Where(a => a.GetCustomAttribute<ValidateRequestAttribute>() is not null)

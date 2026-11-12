@@ -1,0 +1,165 @@
+{
+  "response": {
+    "data": {
+      "insertProduct": {
+        "acknowledged": true,
+        "itemId": "p9",
+        "totalImpactedData": 0,
+        "message": null
+      }
+    }
+  },
+  "mongoAfter": {
+    "Notes": [
+      {
+        "IsDeleted": false,
+        "ItemId": "n1",
+        "Text": "Hello",
+        "_id": "n1"
+      }
+    ],
+    "Products": [
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8000"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p1",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.5417000000000005,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 10.5,
+        "Secret": "s-one",
+        "Status": "Draft",
+        "Stock": 5,
+        "Tags": [
+          "red",
+          "new"
+        ],
+        "Title": "Alpha",
+        "_id": "p1"
+      },
+      {
+        "Address": {
+          "City": "Lucerne",
+          "Zip": "6000"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p2",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.3093000000000004,
+            47.050199999999997
+          ],
+          "type": "Point"
+        },
+        "Owner": "u2",
+        "Price": 20.0,
+        "Secret": "s-two",
+        "Status": "Draft",
+        "Stock": 0,
+        "Tags": [
+          "blue"
+        ],
+        "Title": "Bravo",
+        "_id": "p2"
+      },
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8004"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p3",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.5816999999999997,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 30.25,
+        "Secret": "s-three",
+        "Status": "Live",
+        "Stock": 12,
+        "Tags": [],
+        "Title": "Charlie",
+        "_id": "p3"
+      },
+      {
+        "Address": {
+          "City": "Oslo"
+        },
+        "CreatedBy": "u1",
+        "CreatedDate": "<now>",
+        "LastUpdatedBy": "u1",
+        "LastUpdatedDate": "<now>",
+        "OrganizationId": "org-1",
+        "Price": 5.0,
+        "Status": "Live",
+        "Tags": [
+          "a"
+        ],
+        "Title": "Lamp",
+        "_id": "p9"
+      }
+    ]
+  },
+  "events": [
+    {
+      "CollectionName": "Products",
+      "Data": [
+        {
+          "Address": {
+            "City": "Oslo"
+          },
+          "CreatedBy": "u1",
+          "CreatedDate": "<now>",
+          "LastUpdatedBy": "u1",
+          "LastUpdatedDate": "<now>",
+          "OrganizationId": "org-1",
+          "Price": 5.0,
+          "Status": "Live",
+          "Tags": [
+            "a"
+          ],
+          "Title": "Lamp",
+          "_id": "p9"
+        }
+      ],
+      "Kind": "Publish",
+      "Operation": "Inserted",
+      "SchemaName": "Product",
+      "UpdatedDocuments": null
+    }
+  ],
+  "operationTags": {
+    "SchemaName": "insertProduct",
+    "EntityName": "Product",
+    "CollectionName": "Products",
+    "OperationType": "mutation",
+    "OperationQuery": "mutation {\n  insertProduct(input: { ItemId: \"p9\", Title: \"Lamp\", Price: 5, Status: Live, Address: { City: \"Oslo\" }, Tags: [ \"a\" ] }) {\n    acknowledged\n    itemId\n    totalImpactedData\n    message\n  }\n}",
+    "MongoQuery": "{ \"insert\" : { \"_id\" : \"p9\", \"Title\" : \"Lamp\", \"Price\" : 5.0, \"Status\" : \"Live\", \"Address\" : { \"City\" : \"Oslo\" }, \"Tags\" : [\"a\"], \"CreatedDate\" : { \"$date\" : \"<now>\" }, \"LastUpdatedDate\" : { \"$date\" : \"<now>\" }, \"CreatedBy\" : \"u1\", \"LastUpdatedBy\" : \"u1\", \"OrganizationId\" : \"org-1\" } }",
+    "ResponseStatus": "success",
+    "FailureKind": "",
+    "FailureCode": "",
+    "FailureMessage": "",
+    "ResponseSize": 226,
+    "DocumentCount": 1,
+    "InAppRequest": true,
+    "IsIntrospection": false
+  }
+}

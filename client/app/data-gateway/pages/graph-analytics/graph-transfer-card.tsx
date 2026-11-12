@@ -136,7 +136,7 @@ export const GraphTransferCard = ({
               />
               <Bar
                 dataKey="totalBytes"
-                name="Transferred"
+                name={t("GRAPH_TRANSFER_CARD.TRANSFERRED")}
                 fill="var(--color-totalBytes)"
                 radius={[4, 4, 0, 0]}
               />

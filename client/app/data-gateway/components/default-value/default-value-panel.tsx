@@ -323,7 +323,7 @@ export function DefaultValuePanel({
             </Button>
           )}
           <Button type="button" size="sm" disabled={!canSave} onClick={handleSave}>
-            {isPending ? "Saving…" : tx("common:SAVE")}
+            {isPending ? tx("DEFAULT_VALUE_PANEL.SAVING") : tx("common:SAVE")}
           </Button>
         </div>
       </div>

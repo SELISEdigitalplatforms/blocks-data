@@ -133,12 +133,68 @@ public class SchemaDefinitionServiceTests
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task UpdateSchema_NotFound_Returns204()
+    /// <summary>
+    /// The not-found answer of every schema endpoint: 404 with the "Schema not found" body, never 204
+    /// (ASP.NET Core cannot write a body with 204, which raised an exception per request).
+    /// </summary>
+    private static void ShouldBeSchemaNotFound<T>(ServiceResponse<T> result)
     {
+        result.HttpStatusCode.Should().Be(404);
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Be("Schema not found");
+        result.Data.Should().BeNull();
+        result.Errors.Should().BeNull();
+    }
+
+    /// <summary>
+    /// The not-found path's budget: at most the one id-based schema read (none for a blank id), and no other
+    /// repository read, reference-helper, index, change-log or write call.
+    /// </summary>
+    private void ShouldOnlyHaveReadTheSchema(Times reads)
+    {
+        _repo.Verify(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), It.IsAny<string>()), reads);
+        _repo.VerifyNoOtherCalls();
+        _changeLog.VerifyNoOtherCalls();
+        _schemaIndexService.VerifyNoOtherCalls();
+    }
+
+    private void NoSchemaWithAnyId() =>
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
+
+    private void OnlyASystemSchema() =>
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "sys", SchemaName = "User", IsSystemEntity = true, Fields = new() { new FieldDefinition { Name = "Email", Type = "String" } } });
+
+    [Fact]
+    public async Task NotFoundCheck_RunsAfterRequestValidation()
+    {
+        var invalid = new ValidationResult(new[] { new ValidationFailure("SchemaName", "required") });
+        _validator.Setup(v => v.ValidateAsync(It.IsAny<UpdateSchemaRequest>())).ReturnsAsync(invalid);
+        _validator.Setup(v => v.ValidateAsync(It.IsAny<SaveFieldDefinitionRequest>())).ReturnsAsync(invalid);
+        _validator.Setup(v => v.ValidateAsync(It.IsAny<UpdateSchemaDefinitionRequest>())).ReturnsAsync(invalid);
+        NoSchemaWithAnyId();
+
+        var results = new[]
+        {
+            await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "x" }),
+            await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest { SchemaDefinitionItemId = "x" }),
+            await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest { ItemId = "x" }),
+        };
+
+        foreach (var result in results)
+        {
+            result.HttpStatusCode.Should().Be(400);
+            result.Errors.Should().ContainSingle(e => e.PropertyName == "SchemaName");
+        }
+        ShouldOnlyHaveReadTheSchema(Times.Never());
+    }
+
+    [Fact]
+    public async Task UpdateSchema_NotFound_Returns404()
+    {
+        NoSchemaWithAnyId();
         var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "x", SchemaName = "P", CollectionName = "Ps", SchemaType = SchemaType.Entity });
-        result.HttpStatusCode.Should().Be(204);
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Once());
     }
 
     [Fact]
@@ -244,11 +300,12 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
-    public async Task SaveFieldDefinition_NotFound_Returns204()
+    public async Task SaveFieldDefinition_NotFound_Returns404()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
+        NoSchemaWithAnyId();
         var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest { SchemaDefinitionItemId = "x", Fields = new() });
-        result.HttpStatusCode.Should().Be(204);
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Once());
     }
 
     [Fact]
@@ -757,11 +814,28 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
-    public async Task DeleteSchema_NotFound_Returns204()
+    public async Task UpdateSchemaDefinition_NotFound_Returns404()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
+        NoSchemaWithAnyId();
+        var result = await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "x",
+            SchemaName = "Person",
+            CollectionName = "Persons",
+            SchemaType = SchemaType.Entity,
+            Fields = new() { new FieldDefinitionRequest { Name = "Email", Type = "String" } }
+        });
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Once());
+    }
+
+    [Fact]
+    public async Task DeleteSchema_NotFound_Returns404()
+    {
+        NoSchemaWithAnyId();
         var result = await _service.DeleteSchemaAsync("x");
-        result.HttpStatusCode.Should().Be(204);
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Once());
     }
 
     [Fact]
@@ -797,11 +871,27 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
-    public async Task GetSchemaById_NotFound_Returns204()
+    public async Task GetSchemaById_NotFound_Returns404()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
+        NoSchemaWithAnyId();
         var result = await _service.GetSchemaByIdAsync("x");
-        result.HttpStatusCode.Should().Be(204);
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Once());
+    }
+
+    [Fact]
+    public async Task SystemSchema_AnswersEveryEndpointLikeAMissingOne()
+    {
+        OnlyASystemSchema();
+
+        ShouldBeSchemaNotFound(await _service.GetSchemaByIdAsync("sys"));
+        ShouldBeSchemaNotFound(await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "sys", SchemaName = "User", CollectionName = "Users", SchemaType = SchemaType.Entity }));
+        ShouldBeSchemaNotFound(await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest { SchemaDefinitionItemId = "sys", Fields = new() }));
+        ShouldBeSchemaNotFound(await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest { ItemId = "sys", SchemaName = "User", CollectionName = "Users", SchemaType = SchemaType.Entity, Fields = new() }));
+        ShouldBeSchemaNotFound(await _service.DeleteSchemaAsync("sys"));
+        ShouldBeSchemaNotFound(await _service.SetFieldDefaultAsync(new SetFieldDefaultRequest { SchemaId = "sys", FieldName = "Email" }));
+        // One id-based read per call, nothing else: the stored system schema is never written.
+        ShouldOnlyHaveReadTheSchema(Times.Exactly(6));
     }
 
     [Fact]
@@ -984,6 +1074,26 @@ public class SchemaDefinitionServiceTests
         schema.Fields[1].DefaultValue!.Value.Should().Be("{{Employee.FirstName}}");
         _repo.Verify(r => r.UpdateAsync(schema, ""), Times.Once);
         _changeLog.Verify(c => c.CreateSchemaChangeLogAsync("emp", SchemaChangeType.SchemaFieldUpdate), Times.Once);
+    }
+
+    [Fact]
+    public async Task SetFieldDefault_NotFound_Returns404()
+    {
+        NoSchemaWithAnyId();
+        var result = await _service.SetFieldDefaultAsync(Default("DisplayName", DefaultValueKind.Static, "x"));
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Once());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SetFieldDefault_BlankSchemaId_Returns404(string? schemaId)
+    {
+        var result = await _service.SetFieldDefaultAsync(new SetFieldDefaultRequest { SchemaId = schemaId!, FieldName = "DisplayName" });
+        ShouldBeSchemaNotFound(result);
+        ShouldOnlyHaveReadTheSchema(Times.Never());
     }
 
     [Fact]

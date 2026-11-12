@@ -197,6 +197,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::schema::save-schema-fields")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveSchemaFields([FromBody] SaveFieldDefinitionRequest request)
         {
@@ -217,6 +218,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::schema::update-schema-definition")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateSchemaDefinition([FromBody] UpdateSchemaDefinitionRequest request)
         {
@@ -233,6 +235,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::schema::update-schema")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateSchema([FromBody] UpdateSchemaRequest request)
         {
@@ -252,6 +255,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::schema::delete-schema-definition")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteSchemaDefinitionAsync([FromQuery] string id)
         {
             if (string.IsNullOrWhiteSpace(id))

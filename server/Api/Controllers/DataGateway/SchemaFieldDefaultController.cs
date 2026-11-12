@@ -35,6 +35,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::schema::save-schema-fields")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> SetFieldDefault([FromBody] SetFieldDefaultRequest request)
         {
             var response = await _schemaService.SetFieldDefaultAsync(request);

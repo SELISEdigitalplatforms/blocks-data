@@ -1,5 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+// The real Node process: genesis-os replaces the global `process` in the browser bundle.
+import nodeProcess from "node:process";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -12,8 +15,9 @@ const { mutateAsync, showSuccessToast, showErrorToast } = vi.hoisted(() => ({
 }));
 
 // ---- Service / store mocks ------------------------------------------------
-// http-client.ts constructs `new HttpClient(...)` at import time.
-vi.mock("@seliseblocks/genesis-os", () => ({
+// http-client.ts constructs `new HttpClient(...)` at import time and re-exports HttpError.
+vi.mock("@seliseblocks/genesis-os", async () => ({
+  HttpError: (await import("@/test-utils/__mocks__/mock-http-client")).mockHttpClientFactory().HttpError,
   useProjectStore: () => ({
     selectedProject: {
       itemId: "p1",
@@ -44,9 +48,16 @@ vi.mock("@/hooks/use-toast", () => ({
 // useUpdateSchemaStructure is called directly; useSchemaList is pulled in by the
 // (real) useDtoPreviewMap hook and must resolve to a child schema for the
 // child-expansion path.
-vi.mock("../hooks/use-configuration", () => ({
+// The not-found helpers are the real ones, so a save that finds the schema gone acts on a real cache.
+vi.mock("../hooks/use-configuration", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/use-configuration")>();
+  return {
+  isSchemaNotFound: actual.isSchemaNotFound,
+  removeSchemaDetails: actual.removeSchemaDetails,
+  refreshSchemaLists: actual.refreshSchemaLists,
   useUpdateSchemaStructure: () => ({ mutateAsync, isPending: false }),
   useRawIntrospectionQuery: () => ({ data: undefined }),
+  usePendingSchemaIds: () => new Set<string>(),
   useSchemaList: () => ({
     data: {
       data: {
@@ -61,7 +72,8 @@ vi.mock("../hooks/use-configuration", () => ({
       },
     },
   }),
-}));
+  };
+});
 
 // The tree's data hook reads the query cache; here it lists each open root's child fields directly.
 const useNestedTree = vi.hoisted(() =>
@@ -204,7 +216,13 @@ vi.mock("./schema-access-control-drawer", () => ({
 
 vi.mock("./schema-preview-drawer", () => ({
   SchemaPreviewDrawer: (p: Record<string, unknown>) => (
-    <div data-testid="preview-drawer" data-open={String(!!p.open)}>
+    <div
+      data-testid="preview-drawer"
+      data-open={String(!!p.open)}
+      data-details={(p.schemaDetails as { schemaName?: string } | undefined)?.schemaName}
+      data-all-schemas={(p.allSchemas as unknown[] | undefined)?.length}
+      data-live-state={String(p.liveState)}
+    >
       {p.schemaName}
     </div>
   ),
@@ -222,7 +240,10 @@ vi.mock("./schema-structure-table-skeleton", () => ({
   SchemaStructureTableSkeleton: () => <div data-testid="skeleton" />,
 }));
 
+import { HttpError } from "@/lib/http-client";
 import SchemaStructureTable from "./schema-structure";
+
+let queryClient = new QueryClient();
 
 type Props = Parameters<typeof SchemaStructureTable>[0];
 
@@ -251,13 +272,32 @@ function baseProps(overrides: Partial<Props> = {}): Props {
 }
 
 function renderTable(overrides: Partial<Props> = {}) {
-  return render(<SchemaStructureTable {...baseProps(overrides)} />);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SchemaStructureTable {...baseProps(overrides)} />
+    </QueryClientProvider>,
+  );
 }
+
+const SCHEMA_NOT_FOUND_BODY = { isSuccess: false, message: "Schema not found", httpStatusCode: 404, data: null, errors: null };
+
+/** Enters edit mode, deletes the first row (an unsaved change), then saves and confirms. */
+async function editAndSave(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+  await user.click(screen.getByRole("button", { name: "del-0" }));
+  await waitFor(() => expect(rows()).toHaveLength(1));
+  await user.click(screen.getByRole("button", { name: "header-save" }));
+  await user.click(await screen.findByRole("button", { name: "Update" }));
+  await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+}
+
+const editMode = () => screen.getByTestId("schema-header").getAttribute("data-edit");
 
 const rows = () => screen.queryAllByTestId("desktop-row");
 
 describe("SchemaStructureTable", () => {
   beforeEach(() => {
+    queryClient = new QueryClient();
     mutateAsync.mockReset();
     showSuccessToast.mockReset();
     showErrorToast.mockReset();
@@ -390,6 +430,15 @@ describe("SchemaStructureTable", () => {
     );
   });
 
+  it("hands the preview drawer the schema, the project's schemas and its live state", () => {
+    renderTable({ isLive: false });
+    const drawer = screen.getByTestId("preview-drawer");
+    expect(drawer).toHaveAttribute("data-details", "User");
+    // The mocked list answers both the entity and the DTO query with one schema.
+    expect(drawer).toHaveAttribute("data-all-schemas", "2");
+    expect(drawer).toHaveAttribute("data-live-state", "not-live");
+  });
+
   it("opens the validation drawer for a field", async () => {
     const user = userEvent.setup();
     renderTable();
@@ -471,6 +520,110 @@ describe("SchemaStructureTable", () => {
       }),
     );
     expect(showSuccessToast).not.toHaveBeenCalled();
+  });
+
+  it("keeps today's success path: toast, leaves edit mode, keeps the selection (H13)", async () => {
+    const user = userEvent.setup();
+    mutateAsync.mockResolvedValue({ isSuccess: true });
+    const onSchemaGone = vi.fn();
+    renderTable({ onSchemaGone });
+
+    await editAndSave(user);
+
+    await waitFor(() => expect(showSuccessToast).toHaveBeenCalledWith({ description: "Schema updated successfully" }));
+    expect(editMode()).toBe("false");
+    expect(onSchemaGone).not.toHaveBeenCalled();
+    expect(showErrorToast).not.toHaveBeenCalled();
+  });
+
+  it("says the schema no longer exists when the save answers 404, leaves edit mode and lets the host clear it (H9)", async () => {
+    const user = userEvent.setup();
+    mutateAsync.mockRejectedValue(new HttpError(404, { errors: SCHEMA_NOT_FOUND_BODY as never }));
+    const onSchemaGone = vi.fn();
+    queryClient.setQueryData(["schema-details", "s1", "t1"], { data: {} });
+    const removeQueries = vi.spyOn(queryClient, "removeQueries");
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+    renderTable({ onSchemaGone });
+
+    await editAndSave(user);
+
+    await waitFor(() => expect(onSchemaGone).toHaveBeenCalledTimes(1));
+    expect(showErrorToast).toHaveBeenCalledWith({ errors: "This schema no longer exists" });
+    expect(editMode()).toBe("false");
+    // Left the way Cancel leaves: the loaded rows are back.
+    expect(rows()).toHaveLength(2);
+    expect(onSchemaGone.mock.invocationCallOrder[0]).toBeLessThan(removeQueries.mock.invocationCallOrder[0]);
+    expect(queryClient.getQueryState(["schema-details", "s1", "t1"])).toBeUndefined();
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["unadapted-change-logs", "t1"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["security-performance-schema-list", "t1"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ predicate: expect.any(Function) });
+    expect(showSuccessToast).not.toHaveBeenCalled();
+  });
+
+  it("shows the mapped index message for a recognised 400 and stays in edit mode (H12)", async () => {
+    const user = userEvent.setup();
+    mutateAsync.mockRejectedValue(
+      new HttpError(400, { errors: { isSuccess: false, message: "FIELD_USED_BY_INDEX: idx_email", httpStatusCode: 400, data: null, errors: null } as never }),
+    );
+    const onSchemaGone = vi.fn();
+    renderTable({ onSchemaGone });
+
+    await editAndSave(user);
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: "This field is used by index 'idx_email' and cannot be deleted." }),
+    );
+    expect(editMode()).toBe("true");
+    expect(rows()).toHaveLength(1);
+    expect(onSchemaGone).not.toHaveBeenCalled();
+  });
+
+  it("shows the server errors of any other HttpError and keeps the unsaved rows (H12, C11)", async () => {
+    const user = userEvent.setup();
+    const errors = { Fields: ["Field names must be unique"] };
+    mutateAsync.mockRejectedValue(new HttpError(400, { errors }));
+    renderTable();
+
+    await editAndSave(user);
+
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors }));
+    expect(editMode()).toBe("true");
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("keeps edit mode for a 500 as well (C11)", async () => {
+    const user = userEvent.setup();
+    const error = new HttpError(500, { errors: { general: "Something went wrong" } });
+    mutateAsync.mockRejectedValue(error);
+    renderTable();
+
+    await editAndSave(user);
+
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: error.errors }));
+    expect(editMode()).toBe("true");
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("falls back to the generic message for a failure that is not an HttpError, with no unhandled rejection (C10)", async () => {
+    const user = userEvent.setup();
+    const unhandled = vi.fn();
+    nodeProcess.on("unhandledRejection", unhandled);
+    mutateAsync.mockRejectedValue(new TypeError("Failed to fetch"));
+    const onSchemaGone = vi.fn();
+    renderTable({ onSchemaGone });
+
+    try {
+      await editAndSave(user);
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: undefined }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    } finally {
+      nodeProcess.off("unhandledRejection", unhandled);
+    }
+
+    expect(unhandled).not.toHaveBeenCalled();
+    expect(editMode()).toBe("true");
+    expect(rows()).toHaveLength(1);
+    expect(onSchemaGone).not.toHaveBeenCalled();
   });
 
   it("shows the empty state and lets you add a first property (child schema)", async () => {

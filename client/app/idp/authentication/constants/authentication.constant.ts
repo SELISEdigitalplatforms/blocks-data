@@ -17,7 +17,7 @@ export enum GRANT_TYPES {
 }
 
 export const GRANT_TYPES_OPTIONS: { id: GRANT_TYPES; label: string; value: string }[] = [
-  { id: GRANT_TYPES.password, label: "Email/Password", value: GRANT_TYPES.password },
+  { id: GRANT_TYPES.password, get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.EMAIL_PASSWORD"); }, value: GRANT_TYPES.password },
   { id: GRANT_TYPES.social, label: "SSO", value: GRANT_TYPES.social },
   {
     id: GRANT_TYPES.clientCredential,
@@ -103,5 +103,5 @@ export const providers = [
   { id: "okta", name: "Okta", icon: "/assets/images/okta_symbol.png" },
   { id: "auth0", name: "Auth0", icon: "/assets/images/auth0.png" },
   { id: "azure", name: "Azure", icon: "/assets/images/azure.png" },
-  { id: "others", name: "Others", icon: "" },
+  { id: "others", get name() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.OTHERS"); }, icon: "" },
 ];

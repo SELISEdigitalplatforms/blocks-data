@@ -30,6 +30,8 @@ vi.mock("../hooks/use-configuration", () => ({
   useGetUnadaptedChangeLogs: () => useGetUnadaptedChangeLogs(),
   useSchemaDetails: () => ({ data: undefined, isLoading: false }),
   useSchemaList: () => useSchemaList(),
+  // The not-found state is covered in schema-details-page.branches.test.tsx.
+  isSchemaNotFound: () => false,
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({

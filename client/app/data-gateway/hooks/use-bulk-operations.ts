@@ -27,7 +27,7 @@ export const useBulkOperations = ({
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
   const [bulkAccessTargets, setBulkAccessTargets] = useState<FieldAccessTarget[] | null>(null);
   const [isBulkAccessDrawerOpen, setIsBulkAccessDrawerOpen] = useState(false);
-  const [bulkAccessTitle, setBulkAccessTitle] = useState<string>("Manage access");
+  const [bulkAccessTitle, setBulkAccessTitle] = useState<string>(() => t("SCHEMA_STRUCTURE.MANAGE_ACCESS"));
   const [selectedFieldNames, setSelectedFieldNames] = useState<string[]>([]);
 
   const selectedFieldEntries = fields

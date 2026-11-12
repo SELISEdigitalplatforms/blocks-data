@@ -198,7 +198,7 @@ export function SchemaIndexesTab({
                       {index.itemId === DEFAULT_ITEM_ID_INDEX.itemId ? "ItemId(_id_)" : index.name}
                     </span>
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
-                      {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
+                      {t("SCHEMA_INDEXES_TAB.PROPERTY_COUNT", { count: index.fields.length })}
                     </span>
                     <Badge variant="outline" className={cn(TAG_BASE, index.isSystem ? TAG_TONES.system : TAG_TONES.custom)}>
                       {index.isSystem ? t("SCHEMA_INDEXES_TAB.SYSTEM") : t("SCHEMA_INDEXES_TAB.CUSTOM")}

@@ -165,6 +165,16 @@ public class StorageValidatorTests
     }
 
     [Fact]
+    public void LocalStorageUpload_BlankName_ReportsOnlyTheRequiredMessage()
+    {
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
+        var request = new LocalStorageUploadRequest { Name = "", File = Mock.Of<IFormFile>() };
+
+        validator.Validate(request).Errors.Where(e => e.PropertyName == "Name")
+            .Should().ContainSingle().Which.ErrorMessage.Should().Be("Name is required.");
+    }
+
+    [Fact]
     public void LocalStorageUpload_Valid_Passes()
     {
         var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());

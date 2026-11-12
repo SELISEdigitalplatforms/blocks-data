@@ -6,9 +6,9 @@ import { useGetProject } from "@/hooks/use-project";
 import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
-import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";
+import { Keyboard, Play } from "lucide-react";
 import type { editor, IDisposable, languages, Position } from "monaco-editor";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useExecuteGraphQL,
   useGraphQLIntrospection,
@@ -31,33 +31,19 @@ import {
   resolveInputObjectTypeAtCursor,
   type IntrospectionSuggestion,
 } from "../../utils/introspection-utils";
-import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";
 import { useT } from "@seliseblocks/genesis-os/i18n";
+import { PlaygroundMonacoEditor as GraphqlMonacoEditor } from "../playground/monaco-editor";
 
 const GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME = "GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME";
 const GRAPHQL_PLAYGROUND_PAGE_RESPONSE = "GRAPHQL_PLAYGROUND_PAGE.RESPONSE";
 
-const MonacoEditorLazy = lazy(async () => {
-  await import("./monaco-local");
-  const mod = await import("@monaco-editor/react");
-  return { default: mod.default };
-});
-
-function MonacoEditorFallback() {
-  const { t } = useT("data.gateway.schema");
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      {t("GRAPHQL_PLAYGROUND_PAGE.LOADING_EDITOR")}
-    </div>
-  );
-}
-
-const GraphqlMonacoEditor = (props: EditorProps) => (
-  <Suspense fallback={<MonacoEditorFallback />}>
-    <MonacoEditorLazy {...props} />
-  </Suspense>
-);
+// Monaco command ids and the query editor's context key, registered by the page (see the
+// registration effect in GraphQLPlaygroundPage).
+const RUN_OPERATION_COMMAND = "graphql-playground.run-operation";
+const INSERT_NEWLINE_COMMAND = "graphql-playground.insert-newline";
+const EXECUTE_COMMAND = "graphql-playground.execute";
+const QUERY_EDITOR_CONTEXT_KEY = "graphqlPlaygroundQueryEditor";
 
 interface ResponseTab {
   id: string;
@@ -82,25 +68,26 @@ const fieldSuggestionText = (field: { type: string; isArray?: boolean }, isDto: 
   };
 };
 
-export const GraphQLPlaygroundPage = () => {
+type GraphQLWorkspaceProps = {
+  /** The starting query, from a playground handoff; read once on mount. */
+  initialQuery?: string;
+  /** The Schemas drawer's open state, owned by the playground shell, which renders its button. */
+  schemasOpen: boolean;
+  onSchemasOpenChange: (open: boolean) => void;
+};
+
+/** The GraphQL tab of the playground: query editor and response panels, plus the Schemas drawer. */
+export const GraphQLWorkspace = ({
+  initialQuery,
+  schemasOpen: isSchemasDrawerOpen,
+  onSchemasOpenChange: setIsSchemasDrawerOpen,
+}: GraphQLWorkspaceProps) => {
   const { t } = useT("data.gateway.schema");
-  const [query, setQuery] = useState(() => {
-    if (typeof window !== "undefined") {
-      const storedQuery = localStorage.getItem("graphql-playground-query");
-      if (storedQuery) {
-        localStorage.removeItem("graphql-playground-query");
-        return storedQuery;
-      }
-    }
-    return "";
-  });
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
-  const [isCleanDataModalOpen, setIsCleanDataModalOpen] = useState(false);
-  const [isSchemasDrawerOpen, setIsSchemasDrawerOpen] = useState(false);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
-  const codeLensDisposableRef = useRef<IDisposable | null>(null);
   const selectedProject = useProjectStore().selectedProject;
   const { setSelectedProject } = useProjectStore();
   const { data: projectData } = useGetProject({
@@ -143,21 +130,20 @@ export const GraphQLPlaygroundPage = () => {
       enabled: !!projectKey,
     });
 
-  const handleFetchSchemas = () => {
-    setIsSchemasDrawerOpen(true);
-  };
-
   const isSchemasDrawerLoading =
     isSchemasDrawerOpen &&
     !!projectShortKey &&
     (isSchemasIntrospectionPending || schemasIntrospectionData === undefined);
 
-  const handleUseQueryFromSchemas = useCallback((queryText: string) => {
-    setQuery(queryText);
-    setIsSchemasDrawerOpen(false);
-    setResponses([]);
-    setActiveResponseTab("");
-  }, []);
+  const handleUseQueryFromSchemas = useCallback(
+    (queryText: string) => {
+      setQuery(queryText);
+      setIsSchemasDrawerOpen(false);
+      setResponses([]);
+      setActiveResponseTab("");
+    },
+    [setIsSchemasDrawerOpen],
+  );
 
   // Fetch introspected schema for accurate autocompletion
   const { data: introspectedSchema } = useGraphQLIntrospection({
@@ -583,7 +569,7 @@ export const GraphQLPlaygroundPage = () => {
         // Create a single response tab - always use "Response" for single operations
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Response",
+          name: t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE),
           content: responseContent,
         };
 
@@ -593,7 +579,7 @@ export const GraphQLPlaygroundPage = () => {
         const errorContent = JSON.stringify({ error: String(error) }, null, 2);
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Response",
+          name: t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE),
           content: errorContent,
         };
 
@@ -601,7 +587,7 @@ export const GraphQLPlaygroundPage = () => {
         setActiveResponseTab(newTab.id);
       }
     },
-    [executeGraphQL, projectShortKey, injectMockDataTag],
+    [executeGraphQL, projectShortKey, injectMockDataTag, t],
   );
 
   // Register custom completion provider
@@ -614,19 +600,9 @@ export const GraphQLPlaygroundPage = () => {
     // Store monaco instance globally for later use
     (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco = monaco;
 
-    // Shift+Enter inserts a newline without accepting any active suggestion
-    editorInstance.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () =>
-      editorInstance.trigger("keyboard", "type", { text: "\n" }),
-    );
-
-    // Ctrl+Shift+E → Execute the current query
-    editorInstance.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
-      () => {
-        const executeBtn = document.getElementById("graphql-execute-btn");
-        if (executeBtn) executeBtn.click();
-      },
-    );
+    // Scopes the playground's keybinding rules to this editor: the read-only response
+    // editors never set the key, so the shortcuts do not fire there.
+    editorInstance.createContextKey(QUERY_EDITOR_CONTEXT_KEY, true);
 
     // Mark Monaco as ready
     setIsMonacoReady(true);
@@ -1328,34 +1304,76 @@ export const GraphQLPlaygroundPage = () => {
     }
   }, [schemas, generateFieldSnippet, isMonacoReady, dtoPreviewMap, dtoSchemas, introspectedSchema, toMonacoItem, t]);
 
-  // Register CodeLens provider for individual operation execution
+  // Latest values for the Monaco handlers registered once per mount below. They are
+  // updated after render, never during it, so the registrations need not be redone.
+  const executeOperationRef = useRef(executeOperation);
+  const parseOperationsRef = useRef(parseOperations);
+  const tRef = useRef(t);
+  useEffect(() => {
+    executeOperationRef.current = executeOperation;
+  }, [executeOperation]);
+  useEffect(() => {
+    parseOperationsRef.current = parseOperations;
+  }, [parseOperations]);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
+  // Register the CodeLens "Run" command, the two shortcuts and the CodeLens provider once
+  // per mount, through Monaco's public disposable APIs. Monaco's command and keybinding
+  // services are shared by every editor and outlive this page, so everything registered
+  // here is disposed on unmount; nothing patches the shared command service.
   useEffect(() => {
     if (!editorRef.current || !isMonacoReady) return;
 
     const monaco = (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco;
     if (!monaco || !monaco.languages) return;
 
+    const disposables: IDisposable[] = [];
+    // Each registration is owned as soon as it returns, so a later throw disposes it too.
+    const own = (disposable: IDisposable) => {
+      disposables.push(disposable);
+    };
+    const disposeAll = () => disposables.forEach((disposable) => disposable.dispose());
+
     try {
-      // Clean up previous provider
-      if (codeLensDisposableRef.current) {
-        codeLensDisposableRef.current.dispose();
-      }
-
-      // Store operation map globally for command handler
-      const operationMap = new Map<string, string>();
-
-      // Register CodeLens provider
-      codeLensDisposableRef.current = monaco.languages.registerCodeLensProvider("graphql", {
-        provideCodeLenses: (model) => {
-          const text = model.getValue();
-          const operations = parseOperations(text);
-
-          const lenses = operations.map((op, index) => {
-            const commandId = `run-graphql-operation-${index}`;
-
-            operationMap.set(commandId, op.text);
-
-            return {
+      own(
+        monaco.editor.registerCommand(RUN_OPERATION_COMMAND, (_accessor, operationText: unknown) => {
+          if (typeof operationText !== "string") return;
+          return executeOperationRef.current(operationText);
+        }),
+      );
+      own(
+        monaco.editor.registerCommand(INSERT_NEWLINE_COMMAND, () =>
+          // Shift+Enter inserts a newline without accepting any active suggestion
+          editorRef.current?.trigger("keyboard", "type", { text: "\n" }),
+        ),
+      );
+      own(
+        monaco.editor.registerCommand(EXECUTE_COMMAND, () =>
+          document.getElementById("graphql-execute-btn")?.click(),
+        ),
+      );
+      own(
+        monaco.editor.addKeybindingRule({
+          keybinding: monaco.KeyMod.Shift | monaco.KeyCode.Enter,
+          command: INSERT_NEWLINE_COMMAND,
+          when: QUERY_EDITOR_CONTEXT_KEY,
+        }),
+      );
+      own(
+        monaco.editor.addKeybindingRule({
+          keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
+          command: EXECUTE_COMMAND,
+          when: QUERY_EDITOR_CONTEXT_KEY,
+        }),
+      );
+      own(
+        monaco.languages.registerCodeLensProvider("graphql", {
+          provideCodeLenses: (model) => {
+            const translate = tRef.current;
+            const unnamed = translate("GRAPHQL_PLAYGROUND_PAGE.UNNAMED");
+            const lenses = parseOperationsRef.current(model.getValue()).map((op) => ({
               range: {
                 startLineNumber: op.startLine,
                 startColumn: 1,
@@ -1363,68 +1381,35 @@ export const GraphQLPlaygroundPage = () => {
                 endColumn: 1,
               },
               command: {
-                id: commandId,
-                title: `▶ Run ${op.type}${op.name !== "Unnamed" ? ` "${op.name}"` : ""}`,
+                id: RUN_OPERATION_COMMAND,
+                title:
+                  op.name === unnamed
+                    ? translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type })
+                    : translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name }),
+                // The lens carries its own operation text, so a click never reads stale state.
+                arguments: [op.text],
               },
-            };
-          });
+            }));
 
-          return { lenses, dispose: () => {} };
-        },
-        resolveCodeLens: (_model, codeLens) => codeLens,
-      });
-
-      // Register global command handler
-      const editorInstance = editorRef.current;
-      const onDidExecuteCommand = editorInstance.onDidChangeModelContent(() => {
-        // Trigger CodeLens refresh when content changes
-        if (monaco.editor) {
-          monaco.editor.setModelMarkers(editorInstance.getModel()!, "graphql", []);
-        }
-      });
-
-      // Listen for CodeLens clicks
-      const commandService = (
-        editorInstance as unknown as {
-          _commandService?: {
-            executeCommand: (commandId: string, ...args: unknown[]) => unknown;
-          };
-        }
-      )._commandService;
-
-      if (commandService) {
-        const originalExecuteCommand = commandService.executeCommand.bind(commandService);
-        commandService.executeCommand = function (commandId: string, ...args: unknown[]) {
-          // Check if this is our GraphQL operation command
-          if (commandId.startsWith("run-graphql-operation-")) {
-            const operationText = operationMap.get(commandId);
-            if (operationText) {
-              executeOperation(operationText);
-              return Promise.resolve();
-            }
-          }
-
-          // Otherwise, execute the original command
-          return originalExecuteCommand(commandId, ...args);
-        };
-      }
-
-      return () => {
-        onDidExecuteCommand?.dispose();
-      };
+            return { lenses, dispose: () => {} };
+          },
+          resolveCodeLens: (_model, codeLens) => codeLens,
+        }),
+      );
     } catch (error) {
       console.error("Error registering CodeLens provider:", error);
+      disposeAll();
+      return;
     }
-  }, [isMonacoReady, parseOperations, executeOperation]);
+
+    return disposeAll;
+  }, [isMonacoReady]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (completionDisposableRef.current) {
         completionDisposableRef.current.dispose();
-      }
-      if (codeLensDisposableRef.current) {
-        codeLensDisposableRef.current.dispose();
       }
     };
   }, []);
@@ -1445,7 +1430,7 @@ export const GraphQLPlaygroundPage = () => {
         });
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Response",
+          name: t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE),
           content: JSON.stringify(data, null, 2),
         };
         setResponses([newTab]);
@@ -1453,7 +1438,7 @@ export const GraphQLPlaygroundPage = () => {
       } catch (error) {
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Error",
+          name: t("GRAPHQL_PLAYGROUND_PAGE.ERROR"),
           content: JSON.stringify({ error: String(error) }, null, 2),
         };
         setResponses([newTab]);
@@ -1497,55 +1482,11 @@ export const GraphQLPlaygroundPage = () => {
     }
   };
 
+  // With at most one response, the panel shows it, or the empty state when there is none yet.
+  const firstResponse: ResponseTab | undefined = responses[0];
+
   return (
     <>
-      <div className="relative flex h-full w-full flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
-        {/* Ambient gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
-
-        {/* Top header */}
-        <div className="relative flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-card/80 px-3 py-2 sm:px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500/10 ring-1 ring-indigo-500/20">
-              <svg viewBox="0 0 30 30" className="h-3.5 w-3.5 text-indigo-400" fill="currentColor">
-                <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z" />
-                <circle cx="15" cy="1.833" r="2.5" />
-                <circle cx="28.667" cy="9.5" r="2.5" />
-                <circle cx="28.667" cy="20.5" r="2.5" />
-                <circle cx="15" cy="28.167" r="2.5" />
-                <circle cx="1.333" cy="20.5" r="2.5" />
-                <circle cx="1.333" cy="9.5" r="2.5" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-semibold text-foreground">{t("GRAPHQL_PLAYGROUND_PAGE.GRAPHQL_PLAYGROUND")}</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* `outline` rather than `ghost`: ghost has no resting border or
-                background of its own, only a hover state, so paired with
-                muted text it read as a disabled control until the cursor
-                found it — same fix as the validation panel's empty-state CTA. */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleFetchSchemas}
-              disabled={isSchemasDrawerLoading}
-              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-border hover:text-foreground"
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              {t("GRAPHQL_PLAYGROUND_PAGE.SCHEMAS")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsCleanDataModalOpen(true)}
-              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-rose-500/30 hover:text-rose-500"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t("GRAPHQL_PLAYGROUND_PAGE.CLEAN_TEST_DATA")}
-            </Button>
-          </div>
-        </div>
-
         {/* Stacked on phones, with a gap so Response reads as its own panel
             rather than running straight on from the editor's empty space. */}
         <div className="relative flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-0">
@@ -1594,7 +1535,7 @@ export const GraphQLPlaygroundPage = () => {
                 className="h-7 gap-1.5 px-3 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_-2px_rgba(99,102,241,0.5)]"
               >
                 <Play className="h-3 w-3" />
-                {isLoading ? "Executing…" : t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}
+                {isLoading ? t("GRAPHQL_PLAYGROUND_PAGE.EXECUTING") : t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}
               </Button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -1624,59 +1565,7 @@ export const GraphQLPlaygroundPage = () => {
 
           {/* Response panel */}
           <div className="flex min-h-[280px] w-full flex-col border-t border-border/40 md:min-h-0 md:w-1/2 md:border-t-0">
-            {responses.length === 0 ? (
-              <>
-                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground">{t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE)}</span>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <GraphqlMonacoEditor
-                    height="100%"
-                    language="json"
-                    theme={monacoTheme}
-                    value="// Execute a query to see the response"
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false },
-                      fontSize: 13,
-                      lineNumbers: "on",
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      wordWrap: "on",
-                      folding: true,
-                    }}
-                  />
-                </div>
-              </>
-            ) : responses.length === 1 ? (
-              <>
-                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {responses[0].name}
-                  </span>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <GraphqlMonacoEditor
-                    height="100%"
-                    language="json"
-                    theme={monacoTheme}
-                    value={responses[0].content}
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false },
-                      fontSize: 13,
-                      lineNumbers: "on",
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      wordWrap: "on",
-                      folding: true,
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
+            {responses.length > 1 ? (
               <Tabs
                 value={activeResponseTab}
                 onValueChange={setActiveResponseTab}
@@ -1716,18 +1605,43 @@ export const GraphQLPlaygroundPage = () => {
                         tabSize: 2,
                         wordWrap: "on",
                         folding: true,
+                        codeLens: false,
                       }}
                     />
                   </TabsContent>
                 ))}
               </Tabs>
+            ) : (
+              <>
+                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {firstResponse?.name ?? t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE)}
+                  </span>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <GraphqlMonacoEditor
+                    height="100%"
+                    language="json"
+                    theme={monacoTheme}
+                    value={firstResponse?.content ?? t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE_A_QUERY_TO_SEE_THE_RESPONSE")}
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      fontSize: 13,
+                      lineNumbers: "on",
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize: 2,
+                      wordWrap: "on",
+                      folding: true,
+                      codeLens: false,
+                    }}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Clean Test Data Modal */}
-      <CleanTestDataModal open={isCleanDataModalOpen} onOpenChange={setIsCleanDataModalOpen} />
 
       {/* Schemas Introspection Drawer */}
       <SchemasDrawer

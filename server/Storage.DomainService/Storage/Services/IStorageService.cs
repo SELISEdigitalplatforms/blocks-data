@@ -7,6 +7,7 @@ namespace DomainService.Storage
     {
         Task<IEnumerable<string>> ListFilesAsync();
         Task<bool> DeleteFileAsync(string fileInfo);
+        Task<BlobDeleteOutcome> TryDeleteFileAsync(string key);
         string GeneratePreSignedUploadUrlAsync(string fileName, TimeSpan expiry);
         Task<SignedDownloadUrl?> GetDownloadUrlAsync(DownloadUrlRequest request);
         Task<Stream?> DownloadFileAsync(string fileName, string? projectKey = null,  string? itemId = null, string? versionId = null);

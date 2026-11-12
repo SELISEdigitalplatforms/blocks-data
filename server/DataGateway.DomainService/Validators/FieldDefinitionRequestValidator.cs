@@ -6,6 +6,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -70,7 +71,7 @@ public class FieldDefinitionRequestValidator : AbstractValidator<FieldDefinition
     }
     private bool IsValidType(string type)
     {
-        var isValid = GraphQlTypeHelper.IsScalar(type);
+        var isValid = SchemaTypeHelper.IsScalar(type);
         if (isValid)
             return true;
 

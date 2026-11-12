@@ -6,6 +6,12 @@ public class GetGraphLogAnalyticsRequest
     public DateTime? To { get; set; }
 
     /// <summary>
+    /// "rest" or "graphql" (case-insensitive): narrows every card to that transport. Entries with
+    /// no recorded transport count as GraphQL.
+    /// </summary>
+    public string? Transport { get; set; }
+
+    /// <summary>
     /// The viewer's offset from UTC, in minutes (for example, 360 for UTC+06:00). Calendar-day
     /// ranges and chart buckets use this offset so they agree with locally rendered request times.
     /// </summary>

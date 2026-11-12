@@ -165,6 +165,13 @@ namespace DomainService.Storage.Services
         }
 
 
+        /// <summary>
+        /// Satisfies the provider contract only: the Local category keeps deleting through <see cref="DeleteFileAsync"/>,
+        /// which already reports every failure as false.
+        /// </summary>
+        public async Task<BlobDeleteOutcome> TryDeleteFileAsync(string key) =>
+            await DeleteFileAsync(key).ConfigureAwait(false) ? BlobDeleteOutcome.Deleted : BlobDeleteOutcome.Skipped(0, "sftp");
+
         private void DeleteDirectoryRecursive(SftpClient client, string directory)
         {
             var filesAndDirs = client.ListDirectory(directory);

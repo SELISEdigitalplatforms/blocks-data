@@ -1,10 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 
 const deleteAsync = vi.fn();
 const toast = vi.fn();
+const showErrorToast = vi.fn();
 const useSchemaIndexes = vi.fn();
+const getSchemaDetails = vi.hoisted(() => vi.fn());
 
 vi.mock("./schema-access-control-drawer", () => ({
   default: ({ trigger }: { trigger: React.ReactNode }) => (
@@ -14,11 +19,23 @@ vi.mock("./schema-access-control-drawer", () => ({
 
 let pendingSchemaIds: ReadonlySet<string> = new Set();
 
-vi.mock("../hooks/use-configuration", () => ({
-  useDeleteSchema: () => ({ isPending: false, mutateAsync: deleteAsync }),
-  useSchemaIndexes: (...a: unknown[]) => useSchemaIndexes(...a),
-  usePendingSchemaIds: () => pendingSchemaIds,
-}));
+// The delete mutation is a stub; the schema-details query and the cache helpers are the real ones,
+// so the tests see exactly which requests the details view makes around a delete.
+vi.mock("../hooks/use-configuration", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/use-configuration")>();
+  return {
+    useDeleteSchema: () => ({ isPending: false, mutateAsync: deleteAsync }),
+    useSchemaIndexes: (...a: unknown[]) => useSchemaIndexes(...a),
+    usePendingSchemaIds: () => pendingSchemaIds,
+    useSchemaDetails: actual.useSchemaDetails,
+    isSchemaNotFound: actual.isSchemaNotFound,
+    removeSchemaDetails: actual.removeSchemaDetails,
+    refreshSchemaLists: actual.refreshSchemaLists,
+  };
+});
+
+vi.mock("../services/configuration.service", () => ({ configurationService: { getSchemaDetails } }));
+vi.mock("@/lib/http-client", () => mockHttpClientFactory());
 
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
@@ -26,9 +43,47 @@ vi.mock("@seliseblocks/genesis-os", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({
   toast: (...a: unknown[]) => toast(...a),
+  showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
 
+import { HttpError } from "@/lib/http-client";
+import { useSchemaDetails } from "../hooks/use-configuration";
 import { SchemaBasicInfo } from "./schema-basic-info";
+
+let queryClient: QueryClient;
+function Providers({ children }: { children: ReactNode }) {
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+// The delete handler reads the query client.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: Providers });
+
+const SCHEMA_NOT_FOUND_BODY = { isSuccess: false, message: "Schema not found", httpStatusCode: 404, data: null, errors: null };
+
+/**
+ * The details page in miniature: it watches the selected schema's details and lets go of the id when
+ * the basic info reports the schema gone, as SchemaDetailsPage does.
+ */
+function DetailsPageLike({ onDeleteSuccess }: Readonly<{ onDeleteSuccess: () => void }>) {
+  const [selectedId, setSelectedId] = useState<string | null>("s1");
+  useSchemaDetails(selectedId ?? "", "t1", { enabled: Boolean(selectedId) });
+  return (
+    <SchemaBasicInfo
+      {...baseProps()}
+      onDeleteSuccess={() => {
+        onDeleteSuccess();
+        setSelectedId(null);
+      }}
+    />
+  );
+}
+
+async function confirmDelete(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "More options" }));
+  await user.click(await screen.findByText("Delete schema"));
+  await user.click(await screen.findByRole("button", { name: "Delete" }));
+}
+
+const detailsRequestsFor = (id: string) => getSchemaDetails.mock.calls.filter(([requested]) => requested === id).length;
 
 type Props = Parameters<typeof SchemaBasicInfo>[0];
 
@@ -50,8 +105,12 @@ function baseProps(overrides: Partial<Props> = {}): Props {
 describe("SchemaBasicInfo", () => {
   beforeEach(() => {
     pendingSchemaIds = new Set();
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     deleteAsync.mockReset();
     toast.mockReset();
+    showErrorToast.mockReset();
+    getSchemaDetails.mockReset();
+    getSchemaDetails.mockResolvedValue({ data: { id: "s1", schemaName: "User", fields: [] } });
     useSchemaIndexes.mockReset();
     useSchemaIndexes.mockReturnValue({ data: { data: { indexes: [] } } });
   });
@@ -157,6 +216,68 @@ describe("SchemaBasicInfo", () => {
       ),
     );
     await waitFor(() => expect(onDeleteSuccess).toHaveBeenCalled());
+  });
+
+  it("clears the selection before forgetting the deleted schema, and never asks for it again (H11, C9)", async () => {
+    const user = userEvent.setup();
+    deleteAsync.mockResolvedValue({ isSuccess: true });
+    const removeQueries = vi.spyOn(queryClient, "removeQueries");
+    const onDeleteSuccess = vi.fn();
+    render(<DetailsPageLike onDeleteSuccess={onDeleteSuccess} />);
+    await waitFor(() => expect(queryClient.getQueryData(["schema-details", "s1", "t1"])).toBeDefined());
+    expect(detailsRequestsFor("s1")).toBe(1);
+
+    await confirmDelete(user);
+
+    await waitFor(() => expect(removeQueries).toHaveBeenCalledWith({ queryKey: ["schema-details", "s1", "t1"] }));
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: "success", description: "Deleted successfully" }));
+    expect(onDeleteSuccess.mock.invocationCallOrder[0]).toBeLessThan(removeQueries.mock.invocationCallOrder[0]);
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(detailsRequestsFor("s1")).toBe(1);
+    expect(queryClient.getQueryState(["schema-details", "s1", "t1"])).toBeUndefined();
+  });
+
+  it("treats a schema that is already gone like a delete: closes, says so, clears and refreshes (H10)", async () => {
+    const user = userEvent.setup();
+    deleteAsync.mockRejectedValue(new HttpError(404, { errors: SCHEMA_NOT_FOUND_BODY as never }));
+    const removeQueries = vi.spyOn(queryClient, "removeQueries");
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+    const onDeleteSuccess = vi.fn();
+    render(<DetailsPageLike onDeleteSuccess={onDeleteSuccess} />);
+    await waitFor(() => expect(detailsRequestsFor("s1")).toBe(1));
+
+    await confirmDelete(user);
+
+    await waitFor(() => expect(onDeleteSuccess).toHaveBeenCalledTimes(1));
+    expect(showErrorToast).toHaveBeenCalledWith({ errors: "This schema no longer exists" });
+    expect(toast).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(onDeleteSuccess.mock.invocationCallOrder[0]).toBeLessThan(removeQueries.mock.invocationCallOrder[0]);
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: ["schema-details", "s1", "t1"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["unadapted-change-logs", "t1"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["security-performance-schema-list", "t1"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ predicate: expect.any(Function) });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(detailsRequestsFor("s1")).toBe(1);
+  });
+
+  it("keeps today's error toast and the selection for other delete failures (C11)", async () => {
+    const user = userEvent.setup();
+    const failure = new HttpError(500, { errors: { message: "boom" } });
+    deleteAsync.mockRejectedValue(failure);
+    const onDeleteSuccess = vi.fn();
+    const removeQueries = vi.spyOn(queryClient, "removeQueries");
+    render(<SchemaBasicInfo {...baseProps({ onDeleteSuccess })} />);
+
+    await confirmDelete(user);
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive", description: JSON.stringify(failure) })),
+    );
+    expect(showErrorToast).not.toHaveBeenCalled();
+    expect(onDeleteSuccess).not.toHaveBeenCalled();
+    expect(removeQueries).not.toHaveBeenCalled();
   });
   // The type tag used to sit on its own line below the name; every design
   // board draws it inline beside the name instead.

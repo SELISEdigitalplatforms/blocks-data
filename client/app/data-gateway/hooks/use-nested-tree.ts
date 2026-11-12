@@ -3,7 +3,7 @@ import type { IField, IGetSchemaDetailsResponse, ISchemaDetails } from "../model
 import { nestedRows, isPathExpanded, type NestedTreeRow, type TreeExpansion } from "../utils/nested-tree.util";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { OPERATION_ACCESS_SCHEMA_ID, findChildSchemaByType } from "../utils/schema-structure.utils";
-import { schemaDetailsQueryOptions } from "./use-configuration";
+import { isSchemaNotFound, schemaDetailsQueryOptions } from "./use-configuration";
 
 /** One open property of the table itself, whose rows the tree builds. */
 export interface TreeRoot {
@@ -37,11 +37,15 @@ export function useNestedTree({
   const queryClient = useQueryClient();
   const needed = new Set<string>();
 
-  const fieldsOf = (schema: ISchemaDetails): IField[] | null => {
+  const fieldsOf = (schema: ISchemaDetails): IField[] | null | "unavailable" => {
     // OperationAccess is a fixed platform shape, not a project schema: nothing to fetch.
     if (schema.id === OPERATION_ACCESS_SCHEMA_ID) return schema.fields;
+    // Still subscribed when it is missing: dropping the query's last observer and adding it back
+    // would fetch the missing schema again while the property stays open.
     needed.add(schema.id);
-    const cached = queryClient.getQueryData<IGetSchemaDetailsResponse>(schemaDetailsQueryOptions(schema.id, projectKey).queryKey);
+    const { queryKey } = schemaDetailsQueryOptions(schema.id, projectKey);
+    if (isSchemaNotFound(queryClient.getQueryState(queryKey)?.error)) return "unavailable";
+    const cached = queryClient.getQueryData<IGetSchemaDetailsResponse>(queryKey);
     return cached?.data ? normalizeSchemaFields(cached.data.fields) : null;
   };
 

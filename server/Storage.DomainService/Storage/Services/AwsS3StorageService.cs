@@ -6,6 +6,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Utilities;
 using Blocks.Genesis.Entities.Data;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 
 namespace DomainService.Storage
 {
@@ -82,6 +83,32 @@ namespace DomainService.Storage
             return true;
         }
 
+
+        /// <summary>S3 answers 204 whether or not the key existed, so a missing key is reported as Deleted.</summary>
+        public async Task<BlobDeleteOutcome> TryDeleteFileAsync(string key)
+        {
+            try
+            {
+                await _s3Client.DeleteObjectAsync(_bucketName, key).ConfigureAwait(false);
+                return BlobDeleteOutcome.Deleted;
+            }
+            catch (Exception exception) when (MapDeleteException(exception).Status != BlobDeleteStatus.Fatal)
+            {
+                return MapDeleteException(exception);
+            }
+        }
+
+        /// <summary>
+        /// 404 means the key is already gone; 400 and 409 reject only this key; every other status (401, 403,
+        /// 5xx, 0 for network) and every other exception, including timeouts and cancellation, is fatal.
+        /// </summary>
+        public static BlobDeleteOutcome MapDeleteException(Exception exception) => exception switch
+        {
+            AmazonS3Exception { StatusCode: HttpStatusCode.NotFound } => BlobDeleteOutcome.NotFound,
+            AmazonS3Exception { StatusCode: HttpStatusCode.BadRequest or HttpStatusCode.Conflict } failed =>
+                BlobDeleteOutcome.Skipped((int)failed.StatusCode, failed.ErrorCode),
+            _ => BlobDeleteOutcome.Fatal,
+        };
 
         public string GeneratePreSignedUploadUrlAsync(string fileName, TimeSpan expiry)
         {

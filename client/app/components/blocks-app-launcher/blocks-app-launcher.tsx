@@ -371,6 +371,7 @@ interface AppTileProps {
   isLoading: boolean;
 }
 function AppTile({ app, onClick, isLoading }: AppTileProps) {
+  const { t } = useT(DATA_SHARED_MODULE);
   return (
     <button
       onClick={onClick}
@@ -381,7 +382,7 @@ function AppTile({ app, onClick, isLoading }: AppTileProps) {
         {app.icon}
       </div>
       <span className="line-clamp-1 max-w-[90px] text-[12px] font-medium leading-tight text-foreground">
-        {isLoading ? "Opening…" : app.label}
+        {isLoading ? t("BLOCKS_APP_LAUNCHER.OPENING") : app.label}
       </span>
     </button>
   );

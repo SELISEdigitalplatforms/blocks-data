@@ -1,7 +1,11 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Blocks.Genesis.DataAccess.Rules;
+using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.GraphQL;
+using DataGateway.DomainService.Helpers;
+using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
 using FluentAssertions;
 using HotChocolate;
@@ -33,6 +37,48 @@ public class TenantExecutorValidationTests
         }
 
         public void OnExecutorCreated(string schemaName) { }
+    }
+
+    /// <summary>Two fields failing with VALIDATION_ERROR: the engine's paging error and a mutation validation error.</summary>
+    private sealed class ValidationErrorSchema : ITenantSchemaConfigurator
+    {
+        public ValueTask ConfigureAsync(string schemaName, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+        {
+            schemaBuilder.AddQueryType(d =>
+            {
+                d.Name("Query");
+                d.Field("paging").Type<StringType>().Resolve(_ =>
+                    throw new GatewayException(GraphQlConstant.ValidationErrorErrorCode, "'pageSize' must be 0 or greater.").ToGraphQLException());
+                d.Field("mutationValidation").Type<StringType>().Resolve(_ =>
+                {
+                    var result = new DataValidationResult();
+                    result.AddError("Name", "Name is required.", "Required");
+                    MutationValidationHelper.ThrowValidationError(result);
+                    return null;
+                });
+            });
+            return default;
+        }
+
+        public void OnExecutorCreated(string schemaName) { }
+    }
+
+    /// <summary>
+    /// C5: through the tenant pipeline with the gateway's <see cref="AuthHttpResponseFormatter"/>, a paging
+    /// VALIDATION_ERROR gets the same HTTP status as one thrown by <see cref="MutationValidationHelper.ThrowValidationError"/>.
+    /// </summary>
+    [Fact]
+    public async Task PagingValidationError_HasTheSameStatusAsAMutationValidationError()
+    {
+        void Formatter(IRequestExecutorBuilder builder) => builder.Services.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
+
+        var (pagingStatus, pagingBody) = await PostAsync("{ paging }", authenticated: true, Formatter, schema: new ValidationErrorSchema());
+        var (mutationStatus, mutationBody) = await PostAsync("{ mutationValidation }", authenticated: true, Formatter, schema: new ValidationErrorSchema());
+
+        ErrorCodes(pagingBody).Should().Equal(GraphQlConstant.ValidationErrorErrorCode);
+        ErrorCodes(mutationBody).Should().Equal(GraphQlConstant.ValidationErrorErrorCode);
+        pagingBody.Should().Contain("'pageSize' must be 0 or greater.").And.NotContain("validationErrors");
+        pagingStatus.Should().Be(mutationStatus);
     }
 
     [Fact]
@@ -108,12 +154,13 @@ public class TenantExecutorValidationTests
         string query,
         bool authenticated,
         Action<IRequestExecutorBuilder>? configure = null,
-        bool gatewayValidation = true)
+        bool gatewayValidation = true,
+        ITenantSchemaConfigurator? schema = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddRouting();
-        services.AddSingleton<ITenantSchemaConfigurator, OneFieldSchema>();
+        services.AddSingleton<ITenantSchemaConfigurator>(schema ?? new OneFieldSchema());
         var builder = services.AddGraphQLServer();
         if (gatewayValidation)
         {

@@ -23,19 +23,24 @@ namespace DataGateway.DomainService.Gateway;
 public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
 {
     /// <summary>
-    /// The largest page a query may read. Unset (the default), pages are read as requested, as they
-    /// always have been: no limit, and a <c>pageSize</c> of 0 reads every matching row. Set, a larger
-    /// <c>pageSize</c> is clamped to it, a smaller one to at least 1, and <c>pageNo</c> to at least 1.
-    /// Clients that page through everything with a large or zero page size get fewer rows once it is
-    /// set, so turn it on only after checking they do not.
+    /// The largest page a list query reads, for GraphQL and REST alike: <see cref="DefaultMaxPageSize"/> (1000)
+    /// when unset, and also when set to 0 or below (logged once per engine). A <c>pageSize</c> of 0 or above the cap
+    /// reads the cap; there is no unlimited value. REST checks its own <c>DataGateway:Rest:MaxPageSize</c> first and
+    /// refuses page sizes outside it, so this cap only clamps REST pages when that limit is set higher.
     /// </summary>
     public const string MaxPageSizeKey = "DataGateway:MaxPageSize";
+
+    /// <summary>The page-size cap used when <see cref="MaxPageSizeKey"/> is unset or not positive.</summary>
+    public const int DefaultMaxPageSize = 1000;
+
+    /// <summary>The page size read when a query sends none (or the cap, if that is smaller).</summary>
+    public const int DefaultPageSize = 10;
 
     private readonly IGqlDbRepository _repository;
     private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger _logger;
-    private readonly int? _maxPageSize;
+    private readonly int _maxPageSize;
     private readonly IDataChangeEventPublisher? _eventPublisher;
     private readonly IMutationNotifier? _notifier;
     private readonly IAfterWriteQueue? _afterWrite;
@@ -54,7 +59,7 @@ public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
         _resolver = resolver;
         _principals = principals;
         _logger = logger;
-        _maxPageSize = maxPageSize is > 0 ? maxPageSize : null;
+        _maxPageSize = ResolveMaxPageSize(maxPageSize, logger);
         _eventPublisher = eventPublisher;
         _notifier = notifier;
         _afterWrite = afterWrite;
@@ -87,7 +92,9 @@ public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
             }
             var mongoProjection = readProjection.Projection;
             var mongoSort = GetMongoSort(schema, command.Order, command.LegacySortJson);
-            var (skip, limit) = ComputePagination(command.PageNo, command.PageSize);
+            // After the access check, the filter and the sort, so their errors keep priority, and before the read,
+            // so invalid paging makes no repository call.
+            var (pageNo, skip, limit) = ComputePagination(schema, command.PageNo, command.PageSize);
 
             gatewayOperation.CollectionName = schema.CollectionName;
             gatewayOperation.MongoQuery = new BsonDocument
@@ -124,8 +131,8 @@ public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
                 Items = items,
                 // Counted only if the response's totalCount/totalPages/hasNextPage is selected.
                 TotalCountProvider = () => _repository.CountAsync(collectionName, mongoFilter),
-                PageNo = command.PageNo ?? 1,
-                PageSize = _maxPageSize is null ? command.PageSize ?? items.Count : command.PageSize is null ? items.Count : limit
+                PageNo = pageNo,
+                PageSize = limit
             };
         }
         catch (GatewayException ex)
@@ -203,19 +210,75 @@ public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
         throw new GatewayException(GraphQlConstant.ForbiddenErrorCode, message);
     }
 
-    /// <summary>Computes skip/limit from page number and size (see <see cref="MaxPageSizeKey"/>).</summary>
-    private (int skip, int limit) ComputePagination(int? pageNo, int? pageSize)
-    {
-        const int defaultLimit = 10;
-        if (pageNo is not null && pageSize is not null)
-        {
-            if (_maxPageSize is not { } maxPageSize)
-                return ((pageNo.Value - 1) * pageSize.Value, pageSize.Value);
+    // The paging Warnings carry only these placeholders: no row, filter, sort, query text or user.
+    private static readonly Action<ILogger, int, int, Exception?> LogInvalidMaxPageSize =
+        LoggerMessage.Define<int, int>(
+            LogLevel.Warning, new EventId(42301, "InvalidMaxPageSize"),
+            "DataGateway:MaxPageSize {ConfiguredValue} is not a positive integer; using the default {DefaultMaxPageSize}");
 
-            var limit = Math.Clamp(pageSize.Value, 1, maxPageSize);
-            return ((Math.Max(pageNo.Value, 1) - 1) * limit, limit);
+    private static readonly Action<ILogger, string, string, int, int, Exception?> LogPageSizeClamped =
+        LoggerMessage.Define<string, string, int, int>(
+            LogLevel.Warning, new EventId(42302, "PageSizeClamped"),
+            "Data Gateway page size clamped for tenant {TenantId}, schema {SchemaName}: requested {RequestedPageSize}, effective {EffectivePageSize}");
+
+    /// <summary>The configured cap, or <see cref="DefaultMaxPageSize"/> (with one Warning) when it is not positive.</summary>
+    private static int ResolveMaxPageSize(int? configured, ILogger logger)
+    {
+        if (configured is null)
+            return DefaultMaxPageSize;
+        if (configured > 0)
+            return configured.Value;
+
+        LogInvalidMaxPageSize(logger, configured.Value, DefaultMaxPageSize, null);
+        return DefaultMaxPageSize;
+    }
+
+    /// <summary>
+    /// Resolves the page to read: <c>pageNo</c> defaults to 1 and must be at least 1; <c>pageSize</c> defaults to
+    /// <see cref="DefaultPageSize"/> (at most the cap), must not be negative, and 0 or anything above the cap reads the
+    /// cap, so the limit is always between 1 and the cap. A size above the cap is logged with a Warning.
+    /// </summary>
+    private (int pageNo, int skip, int limit) ComputePagination(SchemaDefinitionExtended schema, int? pageNo, int? pageSize)
+    {
+        if (pageNo is < 1)
+            ThrowPagingError("'pageNo' must be 1 or greater.");
+        if (pageSize is < 0)
+            ThrowPagingError("'pageSize' must be 0 or greater.");
+
+        var effectivePageNo = pageNo ?? 1;
+        int limit;
+        if (pageSize is null)
+        {
+            limit = Math.Min(DefaultPageSize, _maxPageSize);
         }
-        return (0, defaultLimit);
+        else if (pageSize == 0)
+        {
+            limit = _maxPageSize;
+        }
+        else if (pageSize > _maxPageSize)
+        {
+            limit = _maxPageSize;
+            LogPageSizeClamped(_logger, TenantContext.GetTenantId(), schema.SchemaName, pageSize.Value, limit, null);
+        }
+        else
+        {
+            limit = pageSize.Value;
+        }
+
+        return (effectivePageNo, (effectivePageNo - 1) * limit, limit);
+    }
+
+    /// <summary>Marks the operation failed and throws the paging <c>VALIDATION_ERROR</c>, with no field errors.</summary>
+    [System.Diagnostics.CodeAnalysis.DoesNotReturn]
+    private static void ThrowPagingError(string message)
+    {
+        GatewayOperationActivity.MarkFailed(
+            System.Diagnostics.Activity.Current,
+            GatewayFailureKind.Validation,
+            message,
+            GraphQlConstant.ValidationErrorErrorCode);
+
+        throw new GatewayException(GraphQlConstant.ValidationErrorErrorCode, message);
     }
 
     /// <summary>Parses sort JSON into BsonDocument or null.</summary>

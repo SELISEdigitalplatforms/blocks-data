@@ -574,6 +574,114 @@ public class GatewayRestServiceTests : IDisposable
         ShouldBeProblem(hidden, 404, "NOT_FOUND");
     }
 
+    // ---- paging: REST's own limits first, then the engine's page-size cap ----
+
+    private const string ClampOpening = "Data Gateway page size clamped";
+
+    /// <summary>The real engine over a mocked repository, with the <c>Person</c> entity served as in <see cref="MockedService"/>.</summary>
+    private (GatewayRestService Service, Mock<IGqlDbRepository> Repository, RecordingLoggerProvider Logs) RealEngineService(
+        RestLimits? limits = null, int? maxPageSize = null, long count = 1)
+    {
+        var schema = Schema(fields: [Field("ItemId"), Field("Name")]);
+        _models.Setup(m => m.GetAsync(Tenant, schema.SchemaName)).ReturnsAsync(new EntityModel(schema, null));
+        var repository = new Mock<IGqlDbRepository>();
+        repository.Setup(r => r.GetItemsAsync(
+                It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync([new BsonDocument { { "_id", "p1" }, { "Name", "Ann" } }]);
+        repository.Setup(r => r.CountAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>())).ReturnsAsync(count);
+        var logs = new RecordingLoggerProvider();
+        var engine = new MongoGatewayDataEngine(repository.Object, Resolver(), Principals(), logs.CreateLogger("MongoGatewayDataEngine"), maxPageSize);
+        return (Service(engine, limits), repository, logs);
+    }
+
+    private static void VerifyRead(Mock<IGqlDbRepository> repository, int skip, int limit) =>
+        repository.Verify(r => r.GetItemsAsync(
+            "Persons", It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<BsonDocument>(),
+            It.IsAny<BsonDocument>(), skip, limit), Times.Once);
+
+    /// <summary>H14 (R1): with default settings a page within 1..1000 is read and reported as sent, with no clamp Warning.</summary>
+    [Fact]
+    public async Task Get_RealEngine_PageWithinTheCap_ReadAsSent()
+    {
+        var (service, repository, logs) = RealEngineService();
+
+        var result = await service.GetAsync(Request("GET", "/api/gateway/Person", "?pageNo=2&pageSize=1000"), "Person", null);
+
+        result.StatusCode.Should().Be(200);
+        VerifyRead(repository, 1000, 1000);
+        var body = Body(result);
+        body.GetProperty("pageNo").GetInt32().Should().Be(2);
+        body.GetProperty("pageSize").GetInt32().Should().Be(1000);
+        logs.Logs.Should().NotContain(l => l.Message.StartsWith(ClampOpening, StringComparison.Ordinal));
+    }
+
+    /// <summary>H15 (R4): with default settings and no paging, REST reads its default page of 10.</summary>
+    [Fact]
+    public async Task Get_RealEngine_NoPaging_ReadsTheRestDefault()
+    {
+        var (service, repository, _) = RealEngineService();
+
+        var result = await service.GetAsync(Request("GET", "/api/gateway/Person"), "Person", null);
+
+        result.StatusCode.Should().Be(200);
+        VerifyRead(repository, 0, 10);
+        var body = Body(result);
+        body.GetProperty("pageNo").GetInt32().Should().Be(1);
+        body.GetProperty("pageSize").GetInt32().Should().Be(10);
+    }
+
+    /// <summary>
+    /// H16 (R5): with DataGateway:Rest:MaxPageSize above the engine cap, a larger REST page is clamped to the cap,
+    /// logged once, and reported with totalPages and hasNextPage computed from it.
+    /// </summary>
+    [Fact]
+    public async Task Get_RestLimitAboveTheEngineCap_ClampsAndWarns()
+    {
+        var (service, repository, logs) = RealEngineService(new RestLimits { MaxPageSize = 5000 }, count: 2500);
+
+        var result = await service.GetAsync(Request("POST", "/api/gateway/Person:query"), "Person",
+            Json("""{ "paging": { "pageNo": 1, "pageSize": 5000 }, "includeTotalCount": true }"""));
+
+        result.StatusCode.Should().Be(200);
+        VerifyRead(repository, 0, 1000);
+        repository.Verify(r => r.CountAsync("Persons", It.IsAny<FilterDefinition<BsonDocument>>()), Times.Once);
+        var body = Body(result);
+        body.GetProperty("pageSize").GetInt32().Should().Be(1000);
+        body.GetProperty("totalCount").GetInt64().Should().Be(2500);
+        body.GetProperty("totalPages").GetInt32().Should().Be(3);
+        body.GetProperty("hasNextPage").GetBoolean().Should().BeTrue();
+        logs.Logs.Where(l => l.Message.StartsWith(ClampOpening, StringComparison.Ordinal)).Should().ContainSingle()
+            .Which.Message.Should().EndWith("requested 5000, effective 1000");
+    }
+
+    /// <summary>C15 (R2): page sizes outside 1..1000 are refused by REST with 400 before the engine (strict mock).</summary>
+    [Theory]
+    [InlineData("?pageSize=1001")]
+    [InlineData("?pageSize=0")]
+    [InlineData("?pageSize=-1")]
+    public async Task Get_PageSizeOutOfRange_400_NoEngineCall(string query)
+    {
+        var (service, _) = MockedService();
+
+        var result = await service.GetAsync(Request("GET", "/api/gateway/Person", query), "Person", null);
+
+        ShouldBeProblem(result, 400, "VALIDATION_ERROR");
+        Problem(result).Detail.Should().Be("'pageSize' must be between 1 and 1000.");
+    }
+
+    /// <summary>C16 (R3): a pageNo below 1 is refused by REST with 400 before the engine (strict mock).</summary>
+    [Fact]
+    public async Task Get_PageNoBelowOne_400_NoEngineCall()
+    {
+        var (service, _) = MockedService();
+
+        var result = await service.GetAsync(Request("GET", "/api/gateway/Person", "?pageNo=0"), "Person", null);
+
+        ShouldBeProblem(result, 400, "VALIDATION_ERROR");
+        Problem(result).Detail.Should().Be("'pageNo' must be 1 or greater.");
+    }
+
     // ---- writes ----
 
     [Fact]
@@ -1030,6 +1138,18 @@ public class GatewayRestServiceTests : IDisposable
         var validate = () => provider.GetRequiredService<IStartupValidator>().Validate();
 
         validate.Should().Throw<OptionsValidationException>();
+    }
+
+    /// <summary>C17: a REST page limit above the engine cap still passes startup validation; nothing compares the two.</summary>
+    [Fact]
+    public void AddDataGatewayRest_RestMaxPageSizeAboveTheEngineCap_PassesStartupValidation()
+    {
+        using var provider = Registered(new() { ["DataGateway:Rest:MaxPageSize"] = "5000" });
+
+        var validate = () => provider.GetRequiredService<IStartupValidator>().Validate();
+
+        validate.Should().NotThrow();
+        provider.GetRequiredService<IOptions<RestLimits>>().Value.MaxPageSize.Should().Be(5000);
     }
 
     [Fact]

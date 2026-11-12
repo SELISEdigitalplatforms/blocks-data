@@ -100,7 +100,7 @@ public class QueryServiceTests
             (await result.GetTotalCountAsync()).Should().Be(2);
             result.Items.Should().HaveCount(2);
             result.PageNo.Should().Be(1);
-            result.PageSize.Should().Be(2); // no PageSize supplied => falls back to item count
+            result.PageSize.Should().Be(10); // no PageSize supplied => the default page size actually read (A4)
         }
         finally { ClearContext(); }
     }
@@ -229,15 +229,15 @@ public class QueryServiceTests
     }
 
     /// <summary>
-    /// Without a configured maximum, paging is exactly what main serves: no cap, a page size of 0
-    /// still reads every matching row, and the reported page size is what the caller sent.
+    /// Without a configured maximum the default cap of 1000 applies (H3, H4, H7): a page size of 0 or above the cap
+    /// reads the cap, a page within it is read as sent, and the reported page size is the limit actually read.
     /// </summary>
     [Theory]
-    [InlineData(1, 5000, 0, 5000)]
-    [InlineData(2, 5000, 5000, 5000)]
-    [InlineData(1, 0, 0, 0)]
+    [InlineData(1, 5000, 0, 1000)]
+    [InlineData(2, 5000, 1000, 1000)]
+    [InlineData(1, 0, 0, 1000)]
     [InlineData(3, 7, 14, 7)]
-    public async Task GetDataAsync_WithoutAMaxPageSize_PagesAsRequested(int pageNo, int pageSize, int expectedSkip, int expectedLimit)
+    public async Task GetDataAsync_WithoutAMaxPageSize_PagesWithinTheDefaultCap(int pageNo, int pageSize, int expectedSkip, int expectedLimit)
     {
         ClearContext();
         SetBlocksCloud(false);
@@ -250,7 +250,7 @@ public class QueryServiceTests
             var result = await _service.GetDataAsync(Context(paging: paging).Object, schema);
 
             result.PageNo.Should().Be(pageNo);
-            result.PageSize.Should().Be(pageSize);
+            result.PageSize.Should().Be(expectedLimit);
             _repo.Verify(r => r.GetItemsAsync(
                 schema.CollectionName,
                 It.IsAny<FilterDefinition<BsonDocument>>(),
@@ -263,7 +263,7 @@ public class QueryServiceTests
     }
 
     [Fact]
-    public async Task GetDataAsync_WithoutAMaxPageSize_OnlyAPageSize_ReadsTheDefaultPageButReportsTheRequestedSize()
+    public async Task GetDataAsync_WithoutAMaxPageSize_OnlyAPageSize_ReadsPageOneOfThatSize()
     {
         ClearContext();
         SetBlocksCloud(false);
@@ -275,6 +275,7 @@ public class QueryServiceTests
 
             var result = await _service.GetDataAsync(Context(paging: paging).Object, schema);
 
+            result.PageNo.Should().Be(1);
             result.PageSize.Should().Be(50);
             _repo.Verify(r => r.GetItemsAsync(
                 schema.CollectionName,
@@ -282,14 +283,91 @@ public class QueryServiceTests
                 It.IsAny<BsonDocument>(),
                 It.IsAny<BsonDocument>(),
                 0,
-                10), Times.Once);
+                50), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    /// <summary>H2 (E13): with a configured cap of 5, a query without paging reads and reports 5.</summary>
+    [Fact]
+    public async Task GetDataAsync_NoPaging_WithACapOfFive_ReadsFive()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var service = new QueryService(_repo.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance, 5);
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+
+            var result = await service.GetDataAsync(Context().Object, schema);
+
+            result.PageNo.Should().Be(1);
+            result.PageSize.Should().Be(5);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName, It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), 0, 5), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    /// <summary>H10 (E10): each non-null paging field overrides input before the paging rules, so input's 0 is not used.</summary>
+    [Fact]
+    public async Task GetDataAsync_PagingOverridesInput_PerField()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            var input = new DynamicQueryInput { PageNo = 1, PageSize = 0 };
+
+            var result = await _service.GetDataAsync(Context(input: input, paging: new PaginationInput { PageSize = 20 }).Object, schema);
+
+            result.PageNo.Should().Be(1);
+            result.PageSize.Should().Be(20);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName, It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), 0, 20), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    /// <summary>
+    /// C1 (E7), C2 (E6) through the adapter: the GraphQL error has the paging message and VALIDATION_ERROR, no
+    /// validationErrors extension, and no repository call is made.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 10, "'pageNo' must be 1 or greater.")]
+    [InlineData(0, null, "'pageNo' must be 1 or greater.")]
+    [InlineData(1, -1, "'pageSize' must be 0 or greater.")]
+    public async Task GetDataAsync_InvalidPaging_IsAValidationErrorWithoutARead(int? pageNo, int? pageSize, string message)
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+
+            var act = () => _service.GetDataAsync(Context(paging: new PaginationInput { PageNo = pageNo, PageSize = pageSize }).Object, schema);
+
+            var error = (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors.Should().ContainSingle().Subject;
+            error.Code.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
+            error.Message.Should().Be(message);
+            (error.Extensions ?? new Dictionary<string, object?>()).Should().NotContainKey("validationErrors");
+            _repo.Verify(r => r.GetItemsAsync(
+                It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+            _repo.Verify(r => r.CountAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>()), Times.Never);
         }
         finally { ClearContext(); }
     }
 
     [Theory]
-    [InlineData(null, 5000)]
-    [InlineData("0", 5000)]
+    [InlineData(null, 1000)]
+    [InlineData("0", 1000)]
     [InlineData("200", 200)]
     public async Task QueryService_FromTheContainer_ReadsTheMaxPageSizeSetting(string? setting, int expectedLimit)
     {

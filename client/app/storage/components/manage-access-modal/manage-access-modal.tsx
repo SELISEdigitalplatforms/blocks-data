@@ -307,7 +307,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             <div className="space-y-1">
               <DialogTitle>{tx("MANAGE_ACCESS_MODAL.MANAGE_ACCESS")}</DialogTitle>
               <DialogDescription className="line-clamp-1">
-                {tx("MANAGE_ACCESS_MODAL.CONTROL_WHO_CAN_ACCESS")}
+                {tx("MANAGE_ACCESS_MODAL.CONTROL_WHO_CAN_ACCESS")}{" "}
                 <span className="font-medium text-foreground">{item.name}</span> {tx("MANAGE_ACCESS_MODAL.AND_WHAT_THEY_CAN_DO")}
               </DialogDescription>
             </div>

@@ -18,6 +18,8 @@ import QueryProvider, { getQueryClient } from "./providers/query-provider";
 import { router } from "./router";
 import "./styles/globals.css";
 
+// This app owns its QueryClient (providers/query-provider.tsx). RollbarProvider only instruments
+// genesis-os's own shared client, so this explicit attach is the app's only react-query reporter.
 attachQueryErrorReporting(getQueryClient(), getRollbar({ service: SERVICE_NAME }));
 
 createRoot(document.getElementById("root")!).render(

@@ -108,6 +108,14 @@ describe("ManageAccessModal", () => {
     expect(await screen.findByText(/Access comes from the parent directory/)).toBeInTheDocument();
   });
 
+  it("keeps a space between the description text and the item name", async () => {
+    render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
+
+    expect(await screen.findByRole("dialog")).toHaveAccessibleDescription(
+      "Control who can access Reports and what they can do.",
+    );
+  });
+
   it("lists an existing entry by its resolved human-readable name, not its raw id", async () => {
     mocks.policies = [policy()];
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);

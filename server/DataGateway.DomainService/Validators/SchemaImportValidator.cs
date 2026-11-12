@@ -32,21 +32,42 @@ public class SchemaImportValidator
         HashSet<string> SchemaNamesInBatch,
         HashSet<string> ExistingCustomSchemaNames,
         HashSet<string> SystemCollectionNames,
-        Dictionary<string, SchemaDefinition> ReferenceTargets);
+        Dictionary<string, SchemaDefinition> ReferenceTargets,
+        CollectionNameOwners CollectionNameOwners);
 
-    public async Task<List<string>> ValidateAsync(List<SchemaExportDocument> documents)
+    /// <summary>
+    /// What the collection-name conflict rule needs: the file's schema names already stored (ordinal,
+    /// soft-deleted included, as the upsert matches them), and the stored Entity schemas that own each
+    /// collection name, keyed case-insensitively after trimming.
+    /// </summary>
+    private sealed record CollectionNameOwners(
+        HashSet<string> StoredSchemaNames,
+        Dictionary<string, string> OwnerByCollectionName)
+    {
+        public static CollectionNameOwners Empty => new(new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <param name="documents">The import file's documents.</param>
+    /// <param name="tenantId">The tenant database to read existing schemas from; empty resolves it from the request context.</param>
+    public async Task<List<string>> ValidateAsync(List<SchemaExportDocument> documents, string? tenantId = null)
     {
         var errors = new List<string>();
-        var context = await LoadContextAsync(documents);
+        var databaseName = tenantId ?? string.Empty;
+        var context = await LoadContextAsync(documents, databaseName);
         var seenSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenNewCollectionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < documents.Count; i++)
-            ValidateDocument(documents[i], $"Document[{i}]", context, seenSchemaNames, errors);
+        {
+            var prefix = $"Document[{i}]";
+            ValidateDocument(documents[i], prefix, context, seenSchemaNames, errors);
+            ValidateCollectionNameConflict(documents[i], prefix, context.CollectionNameOwners, seenNewCollectionNames, errors);
+        }
 
         return errors;
     }
 
-    private async Task<ImportContext> LoadContextAsync(List<SchemaExportDocument> documents)
+    private async Task<ImportContext> LoadContextAsync(List<SchemaExportDocument> documents, string databaseName)
     {
         // Field types are valid if they're a known GraphQL scalar, or the name of another
         // schema (a nested/custom type) either defined in this same import file or already
@@ -67,19 +88,84 @@ public class SchemaImportValidator
 
         // Collection names of system entities are reserved: an imported schema must not point at them.
         var systemSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
-            Builders<SchemaDefinition>.Filter.Eq(s => s.IsSystemEntity, true));
+            Builders<SchemaDefinition>.Filter.Eq(s => s.IsSystemEntity, true), databaseName: databaseName);
         var systemCollectionNames = new HashSet<string>(
             (systemSchemas ?? []).Select(s => s.CollectionName).Where(n => !string.IsNullOrWhiteSpace(n)),
             StringComparer.OrdinalIgnoreCase);
 
         return new ImportContext(
             schemaNamesInBatch,
-            await LoadExistingCustomSchemaNamesAsync(referencedNonScalarTypes),
+            await LoadExistingCustomSchemaNamesAsync(referencedNonScalarTypes, databaseName),
             systemCollectionNames,
-            await LoadReferenceTargetsAsync(documents));
+            await LoadReferenceTargetsAsync(documents, databaseName),
+            await LoadCollectionNameOwnersAsync(documents, databaseName));
     }
 
-    private async Task<HashSet<string>> LoadExistingCustomSchemaNamesAsync(List<string> referencedNonScalarTypes)
+    /// <summary>One read for the collection-name conflict rule: stored non-system schemas named like a file document, or Entity schemas using one of the file's collection names.</summary>
+    private async Task<CollectionNameOwners> LoadCollectionNameOwnersAsync(List<SchemaExportDocument> documents, string databaseName)
+    {
+        var schemaNames = documents.Select(d => d.SchemaName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.Ordinal).ToList();
+        var collectionNames = EntityCollectionNames(documents).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (collectionNames.Count == 0)
+            return CollectionNameOwners.Empty;
+
+        var builder = Builders<SchemaDefinition>.Filter;
+        // Stored names may carry surrounding whitespace, so each anchored pattern allows it.
+        var collectionMatches = collectionNames.Select(n => builder.Regex(s => s.CollectionName,
+            new MongoDB.Bson.BsonRegularExpression($"^\\s*{System.Text.RegularExpressions.Regex.Escape(n)}\\s*$", "i")));
+        var stored = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
+            builder.And(
+                builder.Ne(s => s.IsSystemEntity, true),
+                builder.Or(
+                    builder.In(s => s.SchemaName, schemaNames),
+                    builder.And(
+                        builder.Eq(s => s.SchemaType, SchemaType.Entity),
+                        builder.Ne(s => s.IsDeleted, true),
+                        builder.Or(collectionMatches)))),
+            databaseName: databaseName);
+
+        var owners = CollectionNameOwners.Empty;
+        // The predicate is applied again here, so only schemas that meet the rule count.
+        foreach (var schema in (stored ?? []).Where(s => !s.IsSystemEntity))
+        {
+            if (schemaNames.Contains(schema.SchemaName, StringComparer.Ordinal))
+                owners.StoredSchemaNames.Add(schema.SchemaName);
+
+            var key = schema.CollectionName?.Trim();
+            if (schema.SchemaType != SchemaType.Entity || schema.IsDeleted || string.IsNullOrEmpty(key))
+                continue;
+            // With several owners, report the first in ordinal order.
+            if (!owners.OwnerByCollectionName.TryGetValue(key, out var current) || string.CompareOrdinal(schema.SchemaName, current) < 0)
+                owners.OwnerByCollectionName[key] = schema.SchemaName;
+        }
+        return owners;
+    }
+
+    private static IEnumerable<string> EntityCollectionNames(IEnumerable<SchemaExportDocument> documents) =>
+        documents
+            .Where(d => d.SchemaType == SchemaType.Entity && !string.IsNullOrWhiteSpace(d.CollectionName))
+            .Select(d => d.CollectionName.Trim());
+
+    /// <summary>
+    /// Only a document that inserts a new schema (no stored non-system schema with the ordinal-same name)
+    /// takes part: an update keeps its stored CollectionName. It must not use a collection of an existing
+    /// schema, nor one an earlier inserting document of this file uses (case-insensitive, after trimming).
+    /// </summary>
+    private static void ValidateCollectionNameConflict(SchemaExportDocument doc, string prefix, CollectionNameOwners owners,
+        HashSet<string> seenNewCollectionNames, List<string> errors)
+    {
+        if (doc.SchemaType != SchemaType.Entity || string.IsNullOrWhiteSpace(doc.CollectionName) || string.IsNullOrWhiteSpace(doc.SchemaName)
+            || owners.StoredSchemaNames.Contains(doc.SchemaName))
+            return;
+
+        var key = doc.CollectionName.Trim();
+        if (owners.OwnerByCollectionName.TryGetValue(key, out var owner))
+            errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' is already used by schema '{owner}'.");
+        if (!seenNewCollectionNames.Add(key))
+            errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' is used by more than one document in this import file.");
+    }
+
+    private async Task<HashSet<string>> LoadExistingCustomSchemaNamesAsync(List<string> referencedNonScalarTypes, string databaseName)
     {
         var existingCustomSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (referencedNonScalarTypes.Count == 0)
@@ -88,7 +174,7 @@ public class SchemaImportValidator
         var existingSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
             Builders<SchemaDefinition>.Filter.And(
                 Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, referencedNonScalarTypes),
-                Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)));
+                Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)), databaseName: databaseName);
         foreach (var schema in existingSchemas)
             existingCustomSchemaNames.Add(schema.SchemaName);
         return existingCustomSchemaNames;
@@ -310,7 +396,7 @@ public class SchemaImportValidator
     }
 
     /// <summary>Schemas that Reference and Must not exist in rules in <paramref name="documents"/> may point at: the file's own, then the project's.</summary>
-    private async Task<Dictionary<string, SchemaDefinition>> LoadReferenceTargetsAsync(List<SchemaExportDocument> documents)
+    private async Task<Dictionary<string, SchemaDefinition>> LoadReferenceTargetsAsync(List<SchemaExportDocument> documents, string databaseName)
     {
         var targets = new Dictionary<string, SchemaDefinition>(StringComparer.Ordinal);
         var names = documents
@@ -342,7 +428,7 @@ public class SchemaImportValidator
             var existing = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
                 Builders<SchemaDefinition>.Filter.And(
                     Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, missing),
-                    Builders<SchemaDefinition>.Filter.Eq(s => s.IsDeleted, false)));
+                    Builders<SchemaDefinition>.Filter.Eq(s => s.IsDeleted, false)), databaseName: databaseName);
             // The tenant's own Entity of a name before a system entity of the same name, as the schema build picks it.
             // A system entity holds only what a lookup may see.
             foreach (var schema in (existing ?? []).OrderBy(s => s.IsSystemEntity))

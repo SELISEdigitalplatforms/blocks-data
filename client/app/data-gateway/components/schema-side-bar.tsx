@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { usePendingSchemaIds, useSchemaList } from "../hooks/use-configuration";
 import { ISchemaDetails } from "../models/data-service";
 import { schemaExposure } from "../utils/schema-exposure";
+import { parseSchemaImportNotification, showSchemaImportFailure } from "../utils/schema-import-notification";
 import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
 import { AccessTierDot } from "./primitives";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
@@ -127,19 +128,16 @@ export default function SchemasSidebar({
   const handleImportSchemaNotification = useCallback(
     (notificationData: NotificationData) => {
       try {
-        const payload = notificationData?.message?.denormalizedPayload;
+        const message = parseSchemaImportNotification(notificationData);
 
-        if (!payload) return;
+        if (!message) return;
 
-        const parsed =
-          typeof payload === "string" ? JSON.parse(payload) : payload;
-
-        const message = parsed?.Message ?? parsed;
-
-        if (message?.IsSuccess) {
+        if (message.IsSuccess) {
           queryClient.invalidateQueries({
             queryKey: ["unadapted-change-logs"],
           });
+        } else if (message.IsSuccess === false) {
+          showSchemaImportFailure(message);
         }
       } catch (error) {
         console.error(error);

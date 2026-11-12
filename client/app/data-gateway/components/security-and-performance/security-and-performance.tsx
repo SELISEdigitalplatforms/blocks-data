@@ -33,7 +33,17 @@ import {
   sortByRisk as sortSchemasByRisk,
   type SecurityFilter,
 } from "../../utils/security-summary";
+import { parseSchemaImportNotification, showSchemaImportFailure } from "../../utils/schema-import-notification";
 import { useT } from "@seliseblocks/genesis-os/i18n";
+
+/**
+ * The server's message from a create that failed with a non-2xx response. The HTTP client throws an
+ * HttpError whose `errors` holds the parsed response body (see schema-index.utils.ts).
+ */
+const serverErrorMessage = (error: unknown): string | undefined => {
+  const message = (error as { errors?: { message?: unknown } } | null | undefined)?.errors?.message;
+  return typeof message === "string" && message.trim() ? message : undefined;
+};
 
 interface SecurityAndPerformanceProps {
   onSchemaRowClick: (schema: Schema) => void;
@@ -68,12 +78,12 @@ const SecurityAndPerformance = ({
   const handleImportSchemaNotification = useCallback(
     (notificationData: NotificationData) => {
       try {
-        const payload = notificationData?.message?.denormalizedPayload;
-        if (!payload) return;
-        const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
-        const message = parsed?.Message ?? parsed;
-        if (message?.IsSuccess) {
+        const message = parseSchemaImportNotification(notificationData);
+        if (!message) return;
+        if (message.IsSuccess) {
           queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+        } else if (message.IsSuccess === false) {
+          showSchemaImportFailure(message);
         }
       } catch (error) {
         console.error(error);
@@ -93,15 +103,22 @@ const SecurityAndPerformance = ({
       ...(values.description?.trim() ? { description: values.description.trim() } : {}),
       projectKey,
     };
-    const res = await createSchema(payload);
-    if (res.isSuccess) {
-      onSchemaCreated(res.data.itemId);
-      showSuccessToast({ description: t("SECURITY_AND_PERFORMANCE.SCHEMA_ADDED_SUCCESSFULLY") });
-      setIsAddSchemaModalOpen(false);
-      return true;
+    try {
+      const res = await createSchema(payload);
+      if (res.isSuccess) {
+        onSchemaCreated(res.data.itemId);
+        showSuccessToast({ description: t("SECURITY_AND_PERFORMANCE.SCHEMA_ADDED_SUCCESSFULLY") });
+        setIsAddSchemaModalOpen(false);
+        return true;
+      }
+      showErrorToast({ errors: res.errors });
+      return false;
+    } catch (error) {
+      // The HTTP client throws on any non-2xx response; a 400 carries the server's reason, e.g. a
+      // collection name already used by another schema. Returning false keeps the modal open.
+      showErrorToast({ errors: [serverErrorMessage(error) ?? t("ADD_EDIT_SCHEMA.AN_UNEXPECTED_ERROR_OCCURRED_PLEASE")] });
+      return false;
     }
-    showErrorToast({ errors: res.errors });
-    return false;
   };
 
   const schemas = useMemo(() => schemaListQuery?.data.schemas.items ?? [], [schemaListQuery]);

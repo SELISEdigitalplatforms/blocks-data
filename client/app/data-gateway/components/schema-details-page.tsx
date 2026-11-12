@@ -26,6 +26,7 @@ import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-par
 import {
   ICreateSchemaDefaultValues,
   ICreateSchemaPayload,
+  IGetSchemaDetailsResponse,
   ISchemaDetails,
 } from "../models/data-service";
 import { createEmptyAccessRuleSet, normalizeAccessRuleSet } from "../utils/schema-access.utils";
@@ -66,35 +67,210 @@ const EMPTY_SCHEMA: ISchemaDetails = {
   deleteAccessLevel: 1,
 };
 
-export const SchemaDetailsPage = () => {
-  const { t } = useT("data.gateway.schema");
-  const queryClient = useQueryClient();
-  const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] = useState(false);
-  const [addEditSchemaInstance, setAddEditSchemaInstance] = useState(0);
-  // Set only when opened from the empty-canvas's Entity/Child cards, so the
-  // modal lands on that kind instead of always defaulting to Entity.
-  const [addSchemaKind, setAddSchemaKind] = useState<"Entity" | "DTO" | undefined>(undefined);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importModalInstance, setImportModalInstance] = useState(0);
-  // Lifted out of SchemaStructureTable so its trigger can sit beside the
-  // Schema Access button in SchemaBasicInfo — a sibling component — instead
-  // of in the field table's own header.
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+/** The fetched schema in the page's local shape. */
+const toSchemaDetails = (res: IGetSchemaDetailsResponse["data"], projectKey: string): ISchemaDetails => ({
+  id: res.id,
+  schemaName: res.schemaName,
+  description: res.description,
+  schemaType: res.schemaType,
+  collectionName: res.collectionName,
+  fields: normalizeSchemaFields(res.fields),
+  totalPermissions: res.totalPermissions,
+  totalUsers: res.totalUsers,
+  totalRoles: res.totalRoles,
+  readAccess: normalizeAccessRuleSet(res.readAccess),
+  writeAccess: normalizeAccessRuleSet(res.writeAccess),
+  deleteAccess: normalizeAccessRuleSet(res.deleteAccess),
+  projectKey: res.projectKey ?? projectKey,
+  isRlsEnabled: res.isRlsEnabled ?? false,
+  isClsEnabled: res.isClsEnabled ?? false,
+  projectShortKey: res.projectShortKey,
+  totalSchemaReferences: res.totalSchemaReferences,
+  schemaReferences: res.schemaReferences,
+  readAccessLevel: res.readAccessLevel,
+  writeAccessLevel: res.writeAccessLevel,
+  editAccessLevel: res.editAccessLevel,
+  deleteAccessLevel: res.deleteAccessLevel,
+});
 
-  /**
-   * Access, docked beside the table. It opens at the rule editor's full width
-   * and stays there while rule data loads or the editor opens, avoiding a
-   * second horizontal layout shift. The explorer stays folded to a rail for
-   * as long as any inspector — this or Validation's — is open.
-   */
-  const [inspector, setInspector] = useState<AccessInspectorTarget | null>(null);
+type DataGatewayQueryParams = ReturnType<typeof useDataGatewaySearchParams>[0];
 
-  // Validations, docked the same way — the two share one column, so opening
-  // either one closes the other rather than trying to fit both side by side.
-  const [validationInspector, setValidationInspector] = useState<ValidationInspectorTarget | null>(
-    null,
+/**
+ * The explorer column: one box whose width transitions between the full sidebar and the rail. Both
+ * stay mounted (see the comment where the page renders it).
+ */
+function ExplorerColumn({
+  isRightPanelOpen,
+  explorerWidth,
+  selectedSchemaId,
+  queryParams,
+  onAddSchema,
+  onListQueryChange,
+  onExpand,
+}: Readonly<{
+  isRightPanelOpen: boolean;
+  explorerWidth: number;
+  selectedSchemaId: string | null | undefined;
+  queryParams: DataGatewayQueryParams;
+  onAddSchema: () => void;
+  onListQueryChange: (update: DataGatewayListQueryUpdate) => void;
+  onExpand: () => void;
+}>) {
+  const filterType = queryParams.type ?? "all";
+  return (
+    <div
+      data-testid="explorer-column"
+      data-collapsed={isRightPanelOpen ? "true" : "false"}
+      style={
+        {
+          "--dg-explorer-w": `${explorerWidth}px`,
+          "--dg-explorer-open-w": `${SHELL.explorerWidth}px`,
+          "--dg-rail-w": `${SHELL.railWidth}px`,
+        } as React.CSSProperties
+      }
+      className={`dg-panel-collapse relative shrink-0 overflow-hidden lg:w-(--dg-explorer-w) ${
+        selectedSchemaId ? "hidden lg:block" : "block"
+      }`}
+    >
+      <div
+        data-testid="explorer-sidebar-layer"
+        aria-hidden={isRightPanelOpen}
+        inert={isRightPanelOpen}
+        style={{ opacity: isRightPanelOpen ? 0 : 1 }}
+        className={`dg-fade-layer h-full w-full lg:w-(--dg-explorer-open-w) ${
+          isRightPanelOpen ? "pointer-events-none" : ""
+        }`}
+      >
+        <SchemasSidebar
+          onAddSchema={onAddSchema}
+          selectedSchemaId={selectedSchemaId}
+          filterType={filterType}
+          page={queryParams.page}
+          pageSize={queryParams.pageSize}
+          onListQueryChange={onListQueryChange}
+        />
+      </div>
+
+      <div
+        data-testid="explorer-rail-layer"
+        aria-hidden={!isRightPanelOpen}
+        inert={!isRightPanelOpen}
+        style={{ opacity: isRightPanelOpen ? 1 : 0 }}
+        className={`dg-fade-layer absolute inset-y-0 left-0 hidden w-(--dg-rail-w) lg:block ${
+          isRightPanelOpen ? "" : "pointer-events-none"
+        }`}
+      >
+        <SchemaRail
+          filterType={filterType}
+          page={queryParams.page}
+          pageSize={queryParams.pageSize}
+          selectedSchemaId={selectedSchemaId}
+          onSelectSchema={(id) => onListQueryChange({ schemaId: id })}
+          onExpand={onExpand}
+        />
+      </div>
+    </div>
   );
+}
 
+/** The docked inspector column (see the comment where the page renders it). */
+function InspectorColumn({
+  isRightPanelOpen,
+  inspectorWidth,
+  inspectorPanelWidth,
+  inspector,
+  lingeringInspector,
+  accessInspectorRef,
+  onCloseInspector,
+  validationInspector,
+  lingeringValidation,
+  onCloseValidation,
+}: Readonly<{
+  isRightPanelOpen: boolean;
+  inspectorWidth: number;
+  inspectorPanelWidth: number;
+  inspector: AccessInspectorTarget | null;
+  lingeringInspector: AccessInspectorTarget | null;
+  accessInspectorRef: React.RefObject<AccessInspectorPanelHandle | null>;
+  onCloseInspector: () => void;
+  validationInspector: ValidationInspectorTarget | null;
+  lingeringValidation: ValidationInspectorTarget | null;
+  onCloseValidation: () => void;
+}>) {
+  return (
+    <div
+      data-testid="inspector-column"
+      data-open={isRightPanelOpen ? "true" : "false"}
+      aria-hidden={!isRightPanelOpen}
+      style={
+        {
+          "--dg-inspector-w": `${inspectorWidth}px`,
+          "--dg-inspector-panel-w": `${inspectorPanelWidth}px`,
+          opacity: isRightPanelOpen ? 1 : 0,
+        } as React.CSSProperties
+      }
+      className={`dg-panel-collapse relative hidden min-h-0 shrink-0 overflow-hidden lg:block lg:w-(--dg-inspector-w) ${
+        isRightPanelOpen ? "" : "pointer-events-none"
+      }`}
+    >
+      {lingeringInspector && (
+        <div
+          aria-hidden={!inspector}
+          inert={!inspector}
+          style={{ opacity: inspector ? 1 : 0 }}
+          className={`dg-fade-layer absolute inset-y-0 right-0 flex w-(--dg-inspector-panel-w) min-h-0 ${
+            inspector ? "" : "pointer-events-none"
+          }`}
+        >
+          <AccessInspector
+            // Remounts on a genuinely different subject (not just a
+            // prop tweak on the same one), so a staged-but-unsaved
+            // change never leaks from one field's inspector into the
+            // next's — the two are otherwise the same component
+            // instance in the same tree position.
+            key={`${lingeringInspector.schemaId}:${lingeringInspector.level}:${(lingeringInspector.fieldNames ?? []).join(",")}`}
+            ref={accessInspectorRef}
+            target={lingeringInspector}
+            onClose={onCloseInspector}
+          />
+        </div>
+      )}
+
+      {lingeringValidation && (
+        <div
+          aria-hidden={!validationInspector}
+          inert={!validationInspector}
+          style={{ opacity: validationInspector ? 1 : 0 }}
+          className={`dg-fade-layer absolute inset-y-0 right-0 flex w-(--dg-inspector-panel-w) min-h-0 ${
+            validationInspector ? "" : "pointer-events-none"
+          }`}
+        >
+          {/* Keyed per panel and field so a half-filled rule or default never carries over. */}
+          <ValidationInspector
+            key={`${lingeringValidation.panel ?? "validation"}:${lingeringValidation.schemaId}:${lingeringValidation.fieldName}`}
+            target={lingeringValidation}
+            onClose={onCloseValidation}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Which rule of which field the docked validation inspector shows, so its row and button show as open. */
+const inspectedRuleOf = (target: ValidationInspectorTarget | null) => {
+  if (!target) return null;
+  return { panel: target.panel === "default" ? ("default" as const) : ("validation" as const), fieldName: target.fieldName };
+};
+
+/**
+ * The widths of the shell's two side columns, from which inspector (if any) is open. Their comments
+ * explain why the columns are animated by width.
+ */
+function useShellWidths(
+  inspector: AccessInspectorTarget | null,
+  validationInspector: ValidationInspectorTarget | null,
+) {
   const isRightPanelOpen = Boolean(inspector) || Boolean(validationInspector);
 
   /**
@@ -131,6 +307,43 @@ export const SchemaDetailsPage = () => {
     ) ?? SHELL.inspectorWidth;
 
   const inspectorWidth = isRightPanelOpen ? inspectorPanelWidth : 0;
+
+  return { isRightPanelOpen, explorerWidth, inspectorPanelWidth, inspectorWidth };
+}
+
+export const SchemaDetailsPage = () => {
+  const { t } = useT("data.gateway.schema");
+  const queryClient = useQueryClient();
+  const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] = useState(false);
+  const [addEditSchemaInstance, setAddEditSchemaInstance] = useState(0);
+  // Set only when opened from the empty-canvas's Entity/Child cards, so the
+  // modal lands on that kind instead of always defaulting to Entity.
+  const [addSchemaKind, setAddSchemaKind] = useState<"Entity" | "DTO" | undefined>(undefined);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importModalInstance, setImportModalInstance] = useState(0);
+  // Lifted out of SchemaStructureTable so its trigger can sit beside the
+  // Schema Access button in SchemaBasicInfo — a sibling component — instead
+  // of in the field table's own header.
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  /**
+   * Access, docked beside the table. It opens at the rule editor's full width
+   * and stays there while rule data loads or the editor opens, avoiding a
+   * second horizontal layout shift. The explorer stays folded to a rail for
+   * as long as any inspector — this or Validation's — is open.
+   */
+  const [inspector, setInspector] = useState<AccessInspectorTarget | null>(null);
+
+  // Validations, docked the same way — the two share one column, so opening
+  // either one closes the other rather than trying to fit both side by side.
+  const [validationInspector, setValidationInspector] = useState<ValidationInspectorTarget | null>(
+    null,
+  );
+
+  const { isRightPanelOpen, explorerWidth, inspectorPanelWidth, inspectorWidth } = useShellWidths(
+    inspector,
+    validationInspector,
+  );
 
   // Contents outlive the close by exactly one collapse, so the column shrinks
   // with the panel still drawn in it rather than around an empty box.
@@ -362,33 +575,7 @@ export const SchemaDetailsPage = () => {
   } | null>(null);
   if (loadedFrom === null || loadedFrom.data !== loadedSchemaData || loadedFrom.projectKey !== projectKey) {
     setLoadedFrom({ data: loadedSchemaData, projectKey });
-    if (schemaDetailsQuery?.data) {
-      const res = schemaDetailsQuery.data;
-      setSchemaDetails({
-        id: res.id,
-        schemaName: res.schemaName,
-        description: res.description,
-        schemaType: res.schemaType,
-        collectionName: res.collectionName,
-        fields: normalizeSchemaFields(res.fields),
-        totalPermissions: res.totalPermissions,
-        totalUsers: res.totalUsers,
-        totalRoles: res.totalRoles,
-        readAccess: normalizeAccessRuleSet(res.readAccess),
-        writeAccess: normalizeAccessRuleSet(res.writeAccess),
-        deleteAccess: normalizeAccessRuleSet(res.deleteAccess),
-        projectKey: res.projectKey ?? projectKey,
-        isRlsEnabled: res.isRlsEnabled ?? false,
-        isClsEnabled: res.isClsEnabled ?? false,
-        projectShortKey: res.projectShortKey,
-        totalSchemaReferences: res.totalSchemaReferences,
-        schemaReferences: res.schemaReferences,
-        readAccessLevel: res.readAccessLevel,
-        writeAccessLevel: res.writeAccessLevel,
-        editAccessLevel: res.editAccessLevel,
-        deleteAccessLevel: res.deleteAccessLevel,
-      });
-    }
+    if (schemaDetailsQuery?.data) setSchemaDetails(toSchemaDetails(schemaDetailsQuery.data, projectKey));
   }
 
   return (
@@ -405,58 +592,15 @@ export const SchemaDetailsPage = () => {
               not exist) and the rail overlays it on lg. Cross-fading them in
               place, rather than swapping them, also means the sidebar's search
               box and scroll position survive a collapse. */}
-          <div
-            data-testid="explorer-column"
-            data-collapsed={isRightPanelOpen ? "true" : "false"}
-            style={
-              {
-                "--dg-explorer-w": `${explorerWidth}px`,
-                "--dg-explorer-open-w": `${SHELL.explorerWidth}px`,
-                "--dg-rail-w": `${SHELL.railWidth}px`,
-              } as React.CSSProperties
-            }
-            className={`dg-panel-collapse relative shrink-0 overflow-hidden lg:w-(--dg-explorer-w) ${
-              selectedSchemaId ? "hidden lg:block" : "block"
-            }`}
-          >
-            <div
-              data-testid="explorer-sidebar-layer"
-              aria-hidden={isRightPanelOpen}
-              inert={isRightPanelOpen}
-              style={{ opacity: isRightPanelOpen ? 0 : 1 }}
-              className={`dg-fade-layer h-full w-full lg:w-(--dg-explorer-open-w) ${
-                isRightPanelOpen ? "pointer-events-none" : ""
-              }`}
-            >
-              <SchemasSidebar
-                onAddSchema={() => openAddSchemaModal()}
-                selectedSchemaId={selectedSchemaId}
-                filterType={queryParams.type ?? "all"}
-                page={queryParams.page}
-                pageSize={queryParams.pageSize}
-                onListQueryChange={handleListQueryChange}
-              />
-            </div>
-
-            <div
-              data-testid="explorer-rail-layer"
-              aria-hidden={!isRightPanelOpen}
-              inert={!isRightPanelOpen}
-              style={{ opacity: isRightPanelOpen ? 1 : 0 }}
-              className={`dg-fade-layer absolute inset-y-0 left-0 hidden w-(--dg-rail-w) lg:block ${
-                isRightPanelOpen ? "" : "pointer-events-none"
-              }`}
-            >
-              <SchemaRail
-                filterType={queryParams.type ?? "all"}
-                page={queryParams.page}
-                pageSize={queryParams.pageSize}
-                selectedSchemaId={selectedSchemaId}
-                onSelectSchema={(id) => handleListQueryChange({ schemaId: id })}
-                onExpand={closeRightPanel}
-              />
-            </div>
-          </div>
+          <ExplorerColumn
+            isRightPanelOpen={isRightPanelOpen}
+            explorerWidth={explorerWidth}
+            selectedSchemaId={selectedSchemaId}
+            queryParams={queryParams}
+            onAddSchema={() => openAddSchemaModal()}
+            onListQueryChange={handleListQueryChange}
+            onExpand={closeRightPanel}
+          />
 
           {/* Main content.
               Deliberately *not* animated. It is a flex child of the same row
@@ -547,11 +691,7 @@ export const SchemaDetailsPage = () => {
                     onOpenStandaloneSchemaEditor={openSchemaInEditor}
                     isPreviewOpen={isPreviewOpen}
                     onPreviewOpenChange={setIsPreviewOpen}
-                    inspectedRule={
-                      validationInspector
-                        ? { panel: validationInspector.panel === "default" ? "default" : "validation", fieldName: validationInspector.fieldName }
-                        : null
-                    }
+                    inspectedRule={inspectedRuleOf(validationInspector)}
                     onOpenFieldAccess={({ fieldNames, subject, context }) =>
                       openAccessInspector({
                         subject,
@@ -608,62 +748,18 @@ export const SchemaDetailsPage = () => {
               rather than being squeezed narrower and re-wrapping its contents
               on the way. Switching Access ⇄ Validation cross-fades in place
               instead of closing the column and reopening it. */}
-          <div
-            data-testid="inspector-column"
-            data-open={isRightPanelOpen ? "true" : "false"}
-            aria-hidden={!isRightPanelOpen}
-            style={
-              {
-                "--dg-inspector-w": `${inspectorWidth}px`,
-                "--dg-inspector-panel-w": `${inspectorPanelWidth}px`,
-                opacity: isRightPanelOpen ? 1 : 0,
-              } as React.CSSProperties
-            }
-            className={`dg-panel-collapse relative hidden min-h-0 shrink-0 overflow-hidden lg:block lg:w-(--dg-inspector-w) ${
-              isRightPanelOpen ? "" : "pointer-events-none"
-            }`}
-          >
-            {lingeringInspector && (
-              <div
-                aria-hidden={!inspector}
-                inert={!inspector}
-                style={{ opacity: inspector ? 1 : 0 }}
-                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-(--dg-inspector-panel-w) min-h-0 ${
-                  inspector ? "" : "pointer-events-none"
-                }`}
-              >
-                <AccessInspector
-                  // Remounts on a genuinely different subject (not just a
-                  // prop tweak on the same one), so a staged-but-unsaved
-                  // change never leaks from one field's inspector into the
-                  // next's — the two are otherwise the same component
-                  // instance in the same tree position.
-                  key={`${lingeringInspector.schemaId}:${lingeringInspector.level}:${(lingeringInspector.fieldNames ?? []).join(",")}`}
-                  ref={accessInspectorRef}
-                  target={lingeringInspector}
-                  onClose={closeInspector}
-                />
-              </div>
-            )}
-
-            {lingeringValidation && (
-              <div
-                aria-hidden={!validationInspector}
-                inert={!validationInspector}
-                style={{ opacity: validationInspector ? 1 : 0 }}
-                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-(--dg-inspector-panel-w) min-h-0 ${
-                  validationInspector ? "" : "pointer-events-none"
-                }`}
-              >
-                {/* Keyed per panel and field so a half-filled rule or default never carries over. */}
-                <ValidationInspector
-                  key={`${lingeringValidation.panel ?? "validation"}:${lingeringValidation.schemaId}:${lingeringValidation.fieldName}`}
-                  target={lingeringValidation}
-                  onClose={() => setValidationInspector(null)}
-                />
-              </div>
-            )}
-          </div>
+          <InspectorColumn
+            isRightPanelOpen={isRightPanelOpen}
+            inspectorWidth={inspectorWidth}
+            inspectorPanelWidth={inspectorPanelWidth}
+            inspector={inspector}
+            lingeringInspector={lingeringInspector}
+            accessInspectorRef={accessInspectorRef}
+            onCloseInspector={closeInspector}
+            validationInspector={validationInspector}
+            lingeringValidation={lingeringValidation}
+            onCloseValidation={() => setValidationInspector(null)}
+          />
         </div>
       </div>
 

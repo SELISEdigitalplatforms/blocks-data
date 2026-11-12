@@ -59,7 +59,8 @@ public class FileManagementZipSourceTests : IDisposable
         _accessResolver.Object,
         _accessRepository.Object,
         Mock.Of<IUploadKeyRouter>(),
-        Mock.Of<IUploadVerificationService>());
+        Mock.Of<IUploadVerificationService>(),
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<FileManagementService>.Instance);
 
     private static BsonDocument Aggregate(string id, string? status, string? storageKey = null, long maxVersion = 2, long size = 100)
     {

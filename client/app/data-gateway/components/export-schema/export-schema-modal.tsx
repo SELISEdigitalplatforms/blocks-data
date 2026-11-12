@@ -248,7 +248,7 @@ export default function ExportSchemaModal({
 
       const itemId = exportResponse.data?.itemId;
       if (!itemId) {
-        throw new Error("Export succeeded but no file ID was returned.");
+        throw new Error(t("EXPORT_SCHEMA_MODAL.EXPORT_SUCCEEDED_BUT_NO_FILE_ID"));
       }
 
       toast({
@@ -382,7 +382,7 @@ export default function ExportSchemaModal({
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" className="border border-border/40" onClick={handleBack}>{t("common:BACK")}</Button>
               <Button size="sm" className="shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]" onClick={handleExport} disabled={!downloadChecked || isExporting}>
-                {isExporting ? "Exporting…" : t("EXPORT_SCHEMA_MODAL.EXPORT")}
+                {isExporting ? t("EXPORT_SCHEMA_MODAL.EXPORTING") : t("EXPORT_SCHEMA_MODAL.EXPORT")}
               </Button>
             </div>
           </div>

@@ -157,7 +157,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
         moduleName: ModuleName.IAMCloud,
       });
 
-      if (!preSign.isSuccess) throw new Error("Failed to get upload URL");
+      if (!preSign.isSuccess) throw new Error(t("CREATE_OIDC.FAILED_TO_GET_UPLOAD_URL"));
 
       await uploadFile({ url: preSign.uploadUrl, file });
 

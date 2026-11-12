@@ -210,7 +210,7 @@ export const CreateDmsNewDirectory = ({
                 </Button>
               </DialogClose>
               <Button type="submit" variant="default" disabled={!isValid || isPending}>
-                {isPending ? "Creating…" : t("common:CREATE")}
+                {isPending ? t("CREATE_DMS_NEW_DIRECTORY.CREATING") : t("common:CREATE")}
               </Button>
             </DialogFooter>
           </form>

@@ -32,6 +32,40 @@ namespace Storage.DomainService.Services
             await collection.DeleteManyAsync(filter);
         }
 
+        public async Task<IReadOnlyList<FileVersion>> GetVersionKeysAsync(string fileId)
+        {
+            var projection = Builders<FileVersion>.Projection
+                .Include(v => v.ItemId)
+                .Include(v => v.No)
+                .Include(v => v.StorageKey);
+            return await GetVersionsCollection()
+                .Find(Builders<FileVersion>.Filter.Eq(v => v.FileId, fileId))
+                .Project<FileVersion>(projection)
+                .ToListAsync()
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// One query for all of a file's candidate keys: the keys that a version of any other file in this tenant
+        /// still stores as its StorageKey (copies and renames share keys). Served by the author-owned
+        /// <c>{StorageKey: 1}</c> index (IX_FileVersions_StorageKey).
+        /// </summary>
+        public async Task<IReadOnlyCollection<string>> GetKeysReferencedByOtherFilesAsync(string fileId, IReadOnlyCollection<string> keys)
+        {
+            ArgumentNullException.ThrowIfNull(keys);
+            if (keys.Count == 0) return Array.Empty<string>();
+            var referenced = await GetVersionsCollection()
+                .Find(KeysReferencedByOtherFilesFilter(fileId, keys))
+                .Project(v => v.StorageKey)
+                .ToListAsync()
+                .ConfigureAwait(false);
+            return referenced.Where(k => k is not null).Select(k => k!).Distinct(StringComparer.Ordinal).ToList();
+        }
+
+        internal static FilterDefinition<FileVersion> KeysReferencedByOtherFilesFilter(string fileId, IReadOnlyCollection<string> keys) =>
+            Builders<FileVersion>.Filter.In(v => v.StorageKey, keys)
+            & Builders<FileVersion>.Filter.Ne(v => v.FileId, fileId);
+
         public IEnumerable<string> GetFileVersionIds(string fileId)
         {
             var filter = Builders<FileVersion>.Filter.Eq(e => e.FileId, fileId);

@@ -13,9 +13,13 @@ using Storage.DomainService.Enums;
 using Storage.DomainService.Storage;
 using Storage.DomainService.Storage.ZipDownload;
 using Storage.DomainService.Utilities;
+using Storage.DomainService.Storage.Validators;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Blocks.Genesis.Entities.Data;
 using File = Blocks.Genesis.Entities.Data.File;
@@ -38,12 +42,13 @@ namespace Storage.DomainService.Services
         private readonly IObjectAccessResolver _accessResolver;
         private readonly IObjectAccessRepository _accessRepository;
         private readonly IObjectItemWriter? _objectItems;
+        private readonly ILogger<FileManagementService> _logger;
         private readonly IUploadKeyRouter _uploadKeyRouter;
         private readonly IUploadVerificationService _uploadVerificationService;
 
         private const string ConfigurationNotFound = "configuration_not_found";
 
-        public FileManagementService(
+        public FileManagementService( // NOSONAR S107 — DI-resolved public constructor (Api, StorageDriver consumers); a parameter object would change that public surface
             IFileRepository fileRepository,
             IStorageServiceFactory storageServiceFactory,
             IFileVersionRepository versionRepository,
@@ -57,6 +62,7 @@ namespace Storage.DomainService.Services
             IObjectAccessRepository accessRepository,
             IUploadKeyRouter uploadKeyRouter,
             IUploadVerificationService uploadVerificationService,
+            ILogger<FileManagementService> logger,
             IObjectItemWriter? objectItems = null
             )
         {
@@ -73,6 +79,7 @@ namespace Storage.DomainService.Services
             _accessRepository = accessRepository;
             _uploadKeyRouter = uploadKeyRouter;
             _uploadVerificationService = uploadVerificationService;
+            _logger = logger;
             _objectItems = objectItems;
         }
 
@@ -109,6 +116,8 @@ namespace Storage.DomainService.Services
 
             request.ItemId = string.IsNullOrEmpty(request.ItemId) ? Guid.NewGuid().ToString() : request.ItemId;
             var existingFile = await _fileRepository.GetFileByItemIdAsync(request.ItemId);
+            if (existingFile is null && DmsValidationRules.NewFileNameError(request.Name) is { } nameError)
+                return NameRejected<GetPreSignedUrlForUploadResponse>(nameError);
             if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ObjectPermission.Edit, "Upload", default))
                 return AccessDenied<GetPreSignedUrlForUploadResponse>();
             if (existingFile is null && !await AuthorizeParentEditAsync(request.ParentDirectoryId, "Upload", default))
@@ -125,7 +134,7 @@ namespace Storage.DomainService.Services
             {
                 return new GetPreSignedUrlForUploadResponse
                 {
-                    Errors = validationResult.Errors.ToDictionary(e => e.PropertyName, e => e.ErrorMessage),
+                    Errors = FirstMessagePerProperty(validationResult.Errors),
                     IsSuccess = false
                 };
             }
@@ -875,30 +884,138 @@ namespace Storage.DomainService.Services
             }
             else
             {
-                var fileVersionIds = _versionRepository.GetFileVersionIds(file.ItemId);
-                await DeleteAllFileVersionsAsync(storageService, file, fileVersionIds);
+                await DeleteCloudBlobsAsync(storageService, file, projectKey ?? string.Empty).ConfigureAwait(false);
                 return true;
             }
         }
 
-        private static async Task DeleteAllFileVersionsAsync(IStorageService storageService, File existingFile, IEnumerable<string> fileVersionIds)
+        /// <summary>
+        /// Deletes a cloud file's blobs by the keys they were stored under (spec blocks-data#418 §6.1-§6.4).
+        /// <list type="bullet">
+        /// <item>A version's own StorageKey is its only candidate. A legacy version without one falls back to the
+        /// path built from the current raw name plus its sanitized form, both under the file's own
+        /// {Public|Private}/{fileId}/{versionId}/ prefix.</item>
+        /// <item>A candidate with a "." or ".." path segment is never sent: the Azure client resolves dot segments,
+        /// so such a key could address another file's blob.</item>
+        /// <item>Keys another file's version still stores (copies, renames) are kept; one query checks them all.</item>
+        /// <item>Per key, Deleted, NotFound and Skipped (400/409) continue; any other provider failure propagates
+        /// before the caller's database cleanup, so the file stays in trash and a retry can finish.</item>
+        /// </list>
+        /// Known residual risk (Q2, accepted): a copy of this file created after the shared-key query and before
+        /// the deletes still loses the bytes of the keys deleted here.
+        /// </summary>
+        private async Task DeleteCloudBlobsAsync(IStorageService storageService, File file, string tenantId)
         {
-            foreach (var versionId in fileVersionIds)
+            var versions = await _versionRepository.GetVersionKeysAsync(file.ItemId).ConfigureAwait(false);
+            var deletable = WithoutUnsafeKeys(CollectCandidates(versions, file), file.ItemId, tenantId);
+            if (deletable.Count == 0) return;
+
+            var shared = new HashSet<string>(
+                await _versionRepository.GetKeysReferencedByOtherFilesAsync(file.ItemId, deletable.Select(c => c.Key).ToList()).ConfigureAwait(false),
+                StringComparer.Ordinal);
+
+            foreach (var (key, versionId) in deletable)
+                await DeleteOrKeepAsync(storageService, file.ItemId, versionId, key, shared.Contains(key), tenantId).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Every candidate key of the file's versions, de-duplicated ordinally; each key maps to the lowest-numbered
+        /// version that references it, which is the version its log lines report.
+        /// </summary>
+        private static Dictionary<string, string> CollectCandidates(IEnumerable<FileVersion> versions, File file)
+        {
+            var accessModifier = file.AccessModifier == AccessModifier.Public ? AccessModifier.Public : AccessModifier.Private;
+            var candidates = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var version in versions.OrderBy(v => v.No))
             {
-                var filePath = DetermineFilePath(existingFile, versionId);
-                await storageService.DeleteFileAsync(filePath);
+                foreach (var key in CandidateKeys(version, file, accessModifier))
+                    candidates.TryAdd(key, version.ItemId);
+            }
+            return candidates;
+        }
+
+        /// <summary>Drops (and logs as skipped, error code unsafe_key) every candidate with a "." or ".." path segment.</summary>
+        private List<KeyValuePair<string, string>> WithoutUnsafeKeys(Dictionary<string, string> candidates, string fileId, string tenantId)
+        {
+            var deletable = new List<KeyValuePair<string, string>>();
+            foreach (var candidate in candidates)
+            {
+                if (HasDotSegment(candidate.Key))
+                    LogBlobSkipped(tenantId, fileId, candidate.Value, BlobDeleteOutcome.Skipped(0, "unsafe_key"), candidate.Key);
+                else
+                    deletable.Add(candidate);
+            }
+            return deletable;
+        }
+
+        /// <summary>Keeps a key another file still references, otherwise deletes it and logs a missing or skipped blob.</summary>
+        private async Task DeleteOrKeepAsync(IStorageService storageService, string fileId, string versionId, string key, bool isShared, string tenantId)
+        {
+            if (isShared)
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                    LogBlobKept(_logger, fileId, versionId, KeyHash(key), tenantId, null);
+                return;
+            }
+
+            var outcome = await storageService.TryDeleteFileAsync(key).ConfigureAwait(false);
+            if (outcome.Status == BlobDeleteStatus.Fatal)
+            {
+                // Providers rethrow instead of returning Fatal; enforce that so a database cleanup can never follow.
+                throw new InvalidOperationException("The storage provider reported a fatal blob delete outcome.");
+            }
+
+            if (outcome.Status == BlobDeleteStatus.NotFound)
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                    LogBlobAlreadyMissing(_logger, fileId, versionId, KeyHash(key), tenantId, null);
+            }
+            else if (outcome.Status == BlobDeleteStatus.Skipped)
+            {
+                LogBlobSkipped(tenantId, fileId, versionId, outcome, key);
             }
         }
 
-        private static string DetermineFilePath(File existingFile, string versionId)
+        private static IEnumerable<string> CandidateKeys(FileVersion version, File file, AccessModifier accessModifier)
         {
-            var accessModifier = existingFile.AccessModifier == AccessModifier.Public
-                ? AccessModifier.Public
-                : AccessModifier.Private;
+            if (!string.IsNullOrEmpty(version.StorageKey))
+            {
+                yield return version.StorageKey;
+                yield break;
+            }
 
-            var fileInfo = GetFileInfo(existingFile.ItemId, versionId, existingFile.Name, accessModifier, StorageStrategyCategory.Cloud);
-            return fileInfo.filePath;
+            yield return GetFileInfo(file.ItemId, version.ItemId, file.Name, accessModifier, StorageStrategyCategory.Cloud).filePath;
+            yield return StorageKeyBuilder.BuildFinalKey(accessModifier, file.ItemId, version.ItemId, file.Name);
         }
+
+        private static bool HasDotSegment(string key) =>
+            key.Split('/').Any(segment => segment is "." or "..");
+
+        private void LogBlobSkipped(string tenantId, string fileId, string versionId, BlobDeleteOutcome outcome, string key)
+        {
+            if (_logger.IsEnabled(LogLevel.Warning))
+                LogBlobDeleteSkipped(_logger, fileId, versionId, outcome.StatusCode, outcome.ErrorCode, KeyHash(key), tenantId, null);
+        }
+
+        // Blob-delete log lines carry ids, the provider status and error code, and the key's hash only: never the
+        // raw key, the file name, a provider message or body, a URL or credentials.
+        private static readonly Action<ILogger, string, string, int, string?, string, string, Exception?> LogBlobDeleteSkipped =
+            LoggerMessage.Define<string, string, int, string?, string, string>(
+                LogLevel.Warning, new EventId(41801, "BlobDeleteSkipped"),
+                "Blob delete skipped for file {FileId} version {VersionId}: provider status {StatusCode} {ErrorCode}, key sha256 {KeyHash}, tenant {TenantId}");
+
+        private static readonly Action<ILogger, string, string, string, string, Exception?> LogBlobKept =
+            LoggerMessage.Define<string, string, string, string>(
+                LogLevel.Information, new EventId(41802, "BlobKeptShared"),
+                "Blob kept for file {FileId} version {VersionId}: key still referenced by another file, key sha256 {KeyHash}, tenant {TenantId}");
+
+        private static readonly Action<ILogger, string, string, string, string, Exception?> LogBlobAlreadyMissing =
+            LoggerMessage.Define<string, string, string, string>(
+                LogLevel.Information, new EventId(41803, "BlobAlreadyMissing"),
+                "Blob already missing for file {FileId} version {VersionId}, key sha256 {KeyHash}, tenant {TenantId}");
+
+        /// <summary>Keys are logged only as the lowercase hex SHA-256 of their UTF-8 bytes, never in clear.</summary>
+        private static string KeyHash(string key) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
 
         private async Task CleanupDatabaseAsync(File existingFile)
         {
@@ -947,12 +1064,14 @@ namespace Storage.DomainService.Services
             {
                 return new LocalStorageUploadResponse
                 {
-                    Errors = validationResult.Errors.ToDictionary(e => e.PropertyName, e => e.ErrorMessage),
+                    Errors = FirstMessagePerProperty(validationResult.Errors),
                     IsSuccess = false
                 };
             }
 
             var existingFile = string.IsNullOrEmpty(request.ItemId) ? null : await _fileRepository.GetFileByItemIdAsync(request.ItemId);
+            if (existingFile is null && DmsValidationRules.NewFileNameError(request.Name) is { } nameError)
+                return NameRejected<LocalStorageUploadResponse>(nameError);
             if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ObjectPermission.Edit, "Upload", default))
                 return AccessDenied<LocalStorageUploadResponse>();
             if (existingFile is null && !await AuthorizeParentEditAsync(request.ParentDirectoryId, "Upload", default))
@@ -1379,6 +1498,21 @@ namespace Storage.DomainService.Services
             IsSuccess = false,
             Errors = new Dictionary<string, string> { { "access", "forbidden" } },
         };
+
+        private static T NameRejected<T>(string message) where T : BaseResponse, new() => new()
+        {
+            IsSuccess = false,
+            Errors = new Dictionary<string, string> { { "Name", message } },
+        };
+
+        /// <summary>The upload responses carry one message per property; a repeated property keeps its first message.</summary>
+        private static Dictionary<string, string> FirstMessagePerProperty(IEnumerable<FluentValidation.Results.ValidationFailure> failures)
+        {
+            var errors = new Dictionary<string, string>();
+            foreach (var failure in failures)
+                errors.TryAdd(failure.PropertyName, failure.ErrorMessage);
+            return errors;
+        }
 
         private static string BuildLocalStorageKey(string tenantId, string fileId, long version, string fileName) =>
             $"{tenantId}/{fileId}/{version}/{fileName.TrimStart('/')}";

@@ -12,6 +12,23 @@ namespace Storage.DomainService.Storage.Validators
     internal static class DmsValidationRules
     {
         internal const int MaxNameLength = 255;
+
+        internal const string UnusableNameMessage =
+            "Name must not be blank, contain a path separator or control characters, or have leading or trailing whitespace.";
+
+        internal const string NameRequiredMessage = "Name is required.";
+
+        /// <summary>
+        /// The name rule for a brand-new file (upload with no existing file for its ItemId). It runs in the service,
+        /// after the existence lookup, so new versions of existing files keep today's validation. Returns the one
+        /// message to report, or null when the name is acceptable.
+        /// </summary>
+        internal static string? NewFileNameError(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return NameRequiredMessage;
+            if (name.Length > MaxNameLength) return $"'Name' must be {MaxNameLength} characters or fewer. You entered {name.Length} characters.";
+            return BeAUsableName(name) ? null : UnusableNameMessage;
+        }
         internal const int MaxPageSize = 200;
         internal const int MaxVersionPageSize = 100;
         internal const int MaxShareBatchSize = 50;
@@ -24,11 +41,16 @@ namespace Storage.DomainService.Storage.Validators
         internal static bool BeADecodableCursor(string? cursor) =>
             string.IsNullOrEmpty(cursor) || ObjectCursor.Decode(cursor) is not null;
 
-        /// <summary>Names that would break path building or confuse a client tree view.</summary>
+        /// <summary>
+        /// Names that would break path building or confuse a client tree view: blank, a path separator, a control
+        /// character (U+0000-U+001F, U+007F-U+009F), surrounding whitespace, "." or "..". Only applied to names a
+        /// request supplies; stored names are never revalidated.
+        /// </summary>
         internal static bool BeAUsableName(string? name) =>
             !string.IsNullOrWhiteSpace(name)
             && !name.Contains('/', StringComparison.Ordinal)
             && !name.Contains('\\', StringComparison.Ordinal)
+            && !name.Any(char.IsControl)
             && name.Trim() == name
             && name != "."
             && name != "..";
@@ -43,10 +65,11 @@ namespace Storage.DomainService.Storage.Validators
         public CreateDirectoryRequestValidator()
         {
             RuleFor(r => r.Name)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
                 .MaximumLength(DmsValidationRules.MaxNameLength)
                 .Must(DmsValidationRules.BeAUsableName)
-                .WithMessage("Name must not be blank, contain a path separator, or have leading or trailing whitespace.");
+                .WithMessage(DmsValidationRules.UnusableNameMessage);
 
             RuleFor(r => r.Description).MaximumLength(2000);
 
@@ -64,10 +87,11 @@ namespace Storage.DomainService.Storage.Validators
 
             // Name is optional on an update, but must be usable when supplied.
             RuleFor(r => r.Name)
+                .Cascade(CascadeMode.Stop)
                 .MaximumLength(DmsValidationRules.MaxNameLength)
                 .Must(DmsValidationRules.BeAUsableName)
                 .When(r => r.Name is not null)
-                .WithMessage("Name must not be blank, contain a path separator, or have leading or trailing whitespace.");
+                .WithMessage(DmsValidationRules.UnusableNameMessage);
 
             RuleFor(r => r.Description).MaximumLength(2000);
 
@@ -112,7 +136,12 @@ namespace Storage.DomainService.Storage.Validators
         public RenameFileRequestValidator()
         {
             RuleFor(r => r.FileId).NotEmpty();
-            RuleFor(r => r.Name).NotEmpty().MaximumLength(DmsValidationRules.MaxNameLength);
+            RuleFor(r => r.Name)
+                .Cascade(CascadeMode.Stop)
+                .NotEmpty()
+                .MaximumLength(DmsValidationRules.MaxNameLength)
+                .Must(DmsValidationRules.BeAUsableName)
+                .WithMessage(DmsValidationRules.UnusableNameMessage);
         }
     }
 

@@ -1,18 +1,21 @@
 import { IField, ISchemaDetails } from "@/data-gateway/models/data-service";
 import { createEmptyAccessRuleSet } from "./schema-normalization";
 import { PREVIEW_TYPE_MAP } from "../models/schema-structure.types";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 /** Id of the built-in OperationAccess shape below; it is never fetched from the server. */
 export const OPERATION_ACCESS_SCHEMA_ID = "builtin:OperationAccess";
 
-const accessList = (name: string, description: string): IField => ({
+const accessList = (name: string, descriptionKey: string): IField => ({
   name,
   type: "String",
   isArray: true,
   enumValues: [],
   isPIIData: false,
   isUniqueData: false,
-  description,
+  get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, descriptionKey); },
   requiredOn: "None",
 });
 
@@ -27,9 +30,9 @@ export const OPERATION_ACCESS_SCHEMA: ISchemaDetails = {
   schemaType: 2,
   collectionName: "",
   fields: [
-    accessList("Roles", "Roles allowed"),
-    accessList("UserIds", "Users allowed"),
-    accessList("Permissions", "Permissions allowed"),
+    accessList("Roles", "SCHEMA_STRUCTURE_UTILS.ROLES_ALLOWED"),
+    accessList("UserIds", "SCHEMA_STRUCTURE_UTILS.USERS_ALLOWED"),
+    accessList("Permissions", "SCHEMA_STRUCTURE_UTILS.PERMISSIONS_ALLOWED"),
   ],
   totalPermissions: 0,
   totalRoles: 0,

@@ -259,7 +259,7 @@ export default function ImportSchemaModal({
             onClick={handleUpload}
             disabled={!files || files.length === 0 || isBusy}
           >
-            {isBusy ? "Uploading…" : t("common:UPLOAD")}
+            {isBusy ? t("IMPORT_SCHEMA_MODAL.UPLOADING") : t("common:UPLOAD")}
           </Button>
         </div>
       </DialogFooter>

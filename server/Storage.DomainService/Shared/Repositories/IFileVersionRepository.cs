@@ -10,6 +10,15 @@ namespace Storage.DomainService.Services
         Task CreateFileVersionAsync(FileVersion fileVersion);
         IEnumerable<string> GetFileVersionIds(string fileId);
         IEnumerable<FileVersion> GetFileVersions(string fileId);
+
+        /// <summary>Every version of the file with only its ItemId, No and StorageKey, in one read.</summary>
+        Task<IReadOnlyList<FileVersion>> GetVersionKeysAsync(string fileId);
+
+        /// <summary>
+        /// Which of <paramref name="keys"/> another file's version (FileId other than <paramref name="fileId"/>)
+        /// still stores as its StorageKey, in one query against the caller's tenant database.
+        /// </summary>
+        Task<IReadOnlyCollection<string>> GetKeysReferencedByOtherFilesAsync(string fileId, IReadOnlyCollection<string> keys);
         Task<long> GetLatestFileVersionNumberAsync(string fileId);
 
         /// <summary>Loads the exact file/version pair, or null when the identifiers do not name one stored version.</summary>

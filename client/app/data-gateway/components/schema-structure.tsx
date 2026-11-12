@@ -305,7 +305,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const [currentAccessFieldTarget, setCurrentAccessFieldTarget] =
     useState<FieldAccessTarget | null>(null);
   const [currentAccessDrawerTitle, setCurrentAccessDrawerTitle] =
-    useState("Manage access");
+    useState(() => tx("SCHEMA_STRUCTURE.MANAGE_ACCESS"));
   const [openTypePopoverIndex, setOpenTypePopoverIndex] = useState<
     number | null
   >(null);

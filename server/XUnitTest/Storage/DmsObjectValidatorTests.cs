@@ -557,3 +557,104 @@ public class DmsObjectValidatorTests
         validator.Validate(undefined).IsValid.Should().BeFalse();
     }
 }
+
+/// <summary>
+/// The name rules of blocks-data#418 (spec §6.5): directory create/update, rename and new-file uploads reject
+/// control characters, path separators, surrounding whitespace, "." and "..", with one message per property.
+/// </summary>
+public class DmsNameRuleTests
+{
+    private const string NameError =
+        "Name must not be blank, contain a path separator or control characters, or have leading or trailing whitespace.";
+
+    public static TheoryData<string> ControlCharacterNames => new()
+    {
+        "Icon\r", "a\u0000b.txt", "tab\there.txt", "line\nbreak.txt", "bell\u0007.pdf", "del\u007F.txt", "c1\u0085.txt", "c1\u009F.txt",
+    };
+
+    public static TheoryData<string> UnusableNames => new()
+    {
+        "a/b.txt", "a\\b.txt", " leading.txt", "trailing.txt ", ".", "..",
+    };
+
+    [Fact]
+    public void The_shared_message_is_the_one_the_spec_prescribes()
+    {
+        DmsValidationRules.UnusableNameMessage.Should().Be(NameError);
+    }
+
+    // C6
+
+    [Theory]
+    [MemberData(nameof(ControlCharacterNames))]
+    public void C6_a_control_character_is_rejected_for_directories_renames_and_new_uploads(string name)
+    {
+        new CreateDirectoryRequestValidator().Validate(new CreateDirectoryRequest { Name = name })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+        new UpdateDirectoryRequestValidator().Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", Name = name })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+        new RenameFileRequestValidator().Validate(new RenameFileRequest { FileId = "file-1", Name = name })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+        DmsValidationRules.NewFileNameError(name).Should().Be(NameError);
+    }
+
+    // C7, E7, E8
+
+    [Theory]
+    [MemberData(nameof(UnusableNames))]
+    public void C7_E7_E8_separators_surrounding_whitespace_and_dot_names_are_rejected_with_the_same_message(string name)
+    {
+        new CreateDirectoryRequestValidator().Validate(new CreateDirectoryRequest { Name = name })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+        new RenameFileRequestValidator().Validate(new RenameFileRequest { FileId = "file-1", Name = name })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+        DmsValidationRules.NewFileNameError(name).Should().Be(NameError);
+    }
+
+    [Fact]
+    public void C7_a_blank_name_gets_only_the_existing_required_message()
+    {
+        var create = new CreateDirectoryRequestValidator().Validate(new CreateDirectoryRequest { Name = "" });
+        var rename = new RenameFileRequestValidator().Validate(new RenameFileRequest { FileId = "file-1", Name = "" });
+
+        create.Errors.Where(e => e.PropertyName == "Name").Should().ContainSingle().Which.ErrorCode.Should().Be("NotEmptyValidator");
+        rename.Errors.Where(e => e.PropertyName == "Name").Should().ContainSingle().Which.ErrorCode.Should().Be("NotEmptyValidator");
+        new UpdateDirectoryRequestValidator().Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", Name = "  " })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+    }
+
+    // C8, H7
+
+    [Fact]
+    public void C8_a_new_upload_name_longer_than_255_characters_gets_a_length_error()
+    {
+        var error = DmsValidationRules.NewFileNameError(new string('a', 252) + ".txt");
+
+        error.Should().NotBeNull().And.Contain("255").And.NotBe(NameError);
+        DmsValidationRules.NewFileNameError(new string('a', 251) + ".txt").Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("report.pdf")]
+    [InlineData("Quarterly Report 2026.xlsx")]
+    [InlineData("naïve café.txt")]
+    [InlineData("a..b.txt")]
+    [InlineData("e2e.bad.txt")]
+    public void H7_a_valid_name_of_255_characters_or_fewer_is_accepted(string name)
+    {
+        DmsValidationRules.NewFileNameError(name).Should().BeNull();
+        new RenameFileRequestValidator().Validate(new RenameFileRequest { FileId = "file-1", Name = name }).IsValid.Should().BeTrue();
+    }
+
+    // H9, E7
+
+    [Fact]
+    public void H9_E7_renaming_a_file_whose_stored_name_has_a_control_character_to_a_valid_name_is_accepted()
+    {
+        // The validator only ever sees the requested name; the stored name ("Icon\r") is not part of the request.
+        new RenameFileRequestValidator().Validate(new RenameFileRequest { FileId = "file-with-icon-cr", Name = "Icon.png" })
+            .IsValid.Should().BeTrue();
+        new RenameFileRequestValidator().Validate(new RenameFileRequest { FileId = "file-with-icon-cr", Name = " Icon.png" })
+            .Errors.Should().ContainSingle().Which.ErrorMessage.Should().Be(NameError);
+    }
+}

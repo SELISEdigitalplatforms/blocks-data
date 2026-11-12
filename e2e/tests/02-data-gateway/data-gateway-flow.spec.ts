@@ -1,4 +1,4 @@
-import { expect, Locator, type Page } from "@playwright/test";
+import { expect, Locator, type Page, type Request } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 import { test } from "../../support/test-base";
@@ -899,6 +899,18 @@ test.describe("flow: Data Gateway menu", () => {
       await dialog.locator('input[type="file"]').setInputFiles(schemaFilePath);
       const uploadButton = dialog.getByRole("button", { name: "Upload" });
       await expect(uploadButton).toBeEnabled({ timeout: 10_000 });
+
+      // blocks-data#422 H4/H7: an import only queues draft changes, so it must not re-read the
+      // served schema. Count gateway introspection POSTs (their body asks for __schema) from the
+      // Upload click until the modal has closed, which happens after the import's onSuccess.
+      const introspectionRequests: string[] = [];
+      const recordIntrospection = (request: Request) => {
+        if (request.method() === "POST" && (request.postData() ?? "").includes("__schema")) {
+          introspectionRequests.push(request.url());
+        }
+      };
+      page.on("request", recordIntrospection);
+
       await uploadButton.click();
       // The upload kicks off async processing; assert the status text actually
       // shows (expect retries fast enough to catch a short-lived flash).
@@ -908,6 +920,9 @@ test.describe("flow: Data Gateway menu", () => {
         await page.keyboard.press("Escape");
       }
       await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+      page.off("request", recordIntrospection);
+      expect(introspectionRequests, "gateway introspection requests sent by the import").toEqual([]);
     });
 
     const secondSchemaName = `dg_flow_sidebar_${Date.now()}`;

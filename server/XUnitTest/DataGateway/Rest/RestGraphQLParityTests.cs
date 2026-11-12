@@ -751,8 +751,8 @@ public class RestGraphQLParityTests
 
     /// <summary>
     /// The same items in the same order (nulls and absent fields count alike, numbers by value), the same page, and,
-    /// when GraphQL selected it, the same total. Without paging in the request both read at most 10 rows, but GraphQL
-    /// reports the number of items as the page size and REST its default page size (10).
+    /// when GraphQL selected it, the same total. Without paging in the request both read at most 10 rows and both report
+    /// the page size they read (10: GraphQL's default page and REST's default page size).
     /// </summary>
     private static void ShouldMatchList(LockInResult graphQl, string field, RestOutcome rest, string[] expectedIds, bool paged = false)
     {

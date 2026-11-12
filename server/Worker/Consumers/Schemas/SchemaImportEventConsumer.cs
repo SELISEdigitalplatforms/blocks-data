@@ -49,7 +49,7 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
         }
         catch (SchemaImportValidationException ex)
         {
-            _logger.LogWarning("Schema import rejected by validation for fileId={FileId}, projectKey={ProjectKey}: {ErrorCount} errors", @event.FileId, @event.ProjectKey, ex.Errors.Count);
+            _logger.LogWarning(ex, "Schema import rejected by validation for fileId={FileId}, projectKey={ProjectKey}: {ErrorCount} errors", @event.FileId, @event.ProjectKey, ex.Errors.Count);
             errors = ex.Errors;
         }
         catch (Exception ex)

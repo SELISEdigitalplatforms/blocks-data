@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useSchemaDetails = vi.fn();
 
-vi.mock("../hooks/use-configuration", () => ({
-  useSchemaDetails: (...args: unknown[]) => useSchemaDetails(...args),
-}));
+vi.mock("../hooks/use-configuration", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/use-configuration")>();
+  return {
+    isSchemaNotFound: actual.isSchemaNotFound,
+    useSchemaDetails: (...args: unknown[]) => useSchemaDetails(...args),
+  };
+});
 
 // Echo the props SchemaStructureTable receives so we can assert the merge /
 // passthrough logic performed by ChildSchemaExpandableContent.
@@ -41,6 +45,7 @@ vi.mock("./schema-structure", () => ({
   ),
 }));
 
+import { HttpError } from "@/lib/http-client";
 import { ChildSchemaExpandableContent } from "./child-schema-expandable-content";
 import { OPERATION_ACCESS_SCHEMA_ID } from "../utils/schema-structure.utils";
 
@@ -249,5 +254,30 @@ describe("ChildSchemaExpandableContent", () => {
     expect(screen.getByTestId("ss-loading")).toHaveTextContent("false");
     expect(screen.getByTestId("ss-hide")).toHaveTextContent("undefined");
     expect(screen.getByTestId("ss-ancestor")).toHaveTextContent('["Read"]');
+  });
+
+  it("says the child schema no longer exists instead of showing an empty table (H8)", () => {
+    useSchemaDetails.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new HttpError(404, {
+        errors: { isSuccess: false, message: "Schema not found", httpStatusCode: 404, data: null, errors: null } as never,
+      }),
+    });
+    const { container } = render(<ChildSchemaExpandableContent schemaId="gone" projectKey="p1" />);
+
+    const line = screen.getByText("This schema no longer exists");
+    expect(line).toHaveClass("py-3", "text-sm", "text-muted-foreground");
+    expect(line.parentElement).toHaveClass("bg-muted/20");
+    expect(screen.queryByTestId("schema-structure")).not.toBeInTheDocument();
+    expect(container.textContent).toBe("This schema no longer exists");
+  });
+
+  it("keeps the table for errors other than 404", () => {
+    useSchemaDetails.mockReturnValue({ data: undefined, isLoading: false, error: new HttpError(500, { errors: {} }) });
+    render(<ChildSchemaExpandableContent schemaId="s1" projectKey="p1" />);
+
+    expect(screen.getByTestId("schema-structure")).toBeInTheDocument();
+    expect(screen.queryByText("This schema no longer exists")).not.toBeInTheDocument();
   });
 });

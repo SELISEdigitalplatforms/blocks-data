@@ -27,6 +27,7 @@ import {
 import {
   configurationService,
 } from "../services/configuration.service";
+import { HttpError } from "@/lib/http-client";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { variableFieldsOf } from "../utils/variable-syntax";
 
@@ -219,6 +220,27 @@ export const useSecurityAndPerformanceSchemaList = ({
   });
 };
 
+/**
+ * The schema-details request answered 404: no schema with that id is visible to this project (it was deleted,
+ * is a system schema, or belongs to another tenant; the server answers all three the same way).
+ */
+export const isSchemaNotFound = (error: unknown): boolean =>
+  error instanceof HttpError && error.status === 404;
+
+/**
+ * Retry for the schema-details queries. A 4xx answer is final (a missing schema stays missing), so it is not
+ * repeated; a 5xx or a failed request gets the one retry the global default gives every query.
+ */
+export const shouldRetrySchemaDetails = (failureCount: number, error: unknown): boolean =>
+  !(error instanceof HttpError && error.status >= 400 && error.status < 500) && failureCount < 1;
+
+/**
+ * Window focus and reconnect refetch a query with no data however fresh it is, so without this a schema
+ * found missing would be asked for again (and flip back to loading) every time the tab regains focus.
+ */
+const refetchUnlessNotFound = (query: { state: { error: unknown } }): boolean =>
+  !isSchemaNotFound(query.state.error);
+
 /** One schema's details, shared by `useSchemaDetails` and the nested-property tree's `useQueries`. */
 export const schemaDetailsQueryOptions = (id: string, projectKey: string, enabled = true) => ({
   queryKey: ["schema-details", id, projectKey] as const,
@@ -227,6 +249,9 @@ export const schemaDetailsQueryOptions = (id: string, projectKey: string, enable
   // Schema details include denormalized Child fields. Always refresh when a
   // schema view mounts so Entity expansions cannot reuse an older Child shape.
   refetchOnMount: "always" as const,
+  retry: shouldRetrySchemaDetails,
+  refetchOnWindowFocus: refetchUnlessNotFound,
+  refetchOnReconnect: refetchUnlessNotFound,
 });
 
 export const useSchemaDetails = (
@@ -248,6 +273,27 @@ const invalidateSchemaList = (
       return !projectKey || keyProject === projectKey;
     },
   });
+
+/** Drops one schema's cached details, e.g. once it is deleted, so nothing serves or refetches them. */
+export const removeSchemaDetails = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: string,
+  projectKey: string,
+) => queryClient.removeQueries({ queryKey: ["schema-details", id, projectKey] });
+
+/** Refreshes every list a schema appears in, after one is deleted or found to be gone. */
+export const refreshSchemaLists = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectKey: string,
+) => {
+  invalidateSchemaList(queryClient, projectKey);
+  queryClient.invalidateQueries({
+    queryKey: ["unadapted-change-logs", projectKey],
+  });
+  queryClient.invalidateQueries({
+    queryKey: ["security-performance-schema-list", projectKey],
+  });
+};
 
 const invalidateSchemaDetailsForProject = (
   queryClient: ReturnType<typeof useQueryClient>,
@@ -335,18 +381,10 @@ export const useDeleteSchema = () => {
   return useMutation({
     mutationFn: (payload: { id: string; projectKey: string }) =>
       configurationService.deleteSchema(payload),
-    onSuccess: (_data, variables) => {
-      queryClient.removeQueries({
-        queryKey: ["schema-details", variables.id, projectKey],
-      });
-      invalidateSchemaList(queryClient, projectKey);
-      queryClient.invalidateQueries({
-        queryKey: ["unadapted-change-logs", projectKey],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list", projectKey],
-      });
-    },
+    // The deleted schema's details are removed by the caller once the page has let go of its id
+    // (removeSchemaDetails): removing them here, while the details view still watches that id,
+    // made it fetch the deleted schema again.
+    onSuccess: () => refreshSchemaLists(queryClient, projectKey),
   });
 };
 
@@ -614,6 +652,9 @@ export const useSchemaVariableContext = (schemaId: string, projectKey: string) =
     queryFn: () => configurationService.getSchemaDetails(schemaId, projectKey),
     enabled: !!schemaId && !!projectKey,
     staleTime: 60_000,
+    retry: shouldRetrySchemaDetails,
+    refetchOnWindowFocus: refetchUnlessNotFound,
+    refetchOnReconnect: refetchUnlessNotFound,
   });
   return useMemo(() => {
     const fields = normalizeSchemaFields(data?.data?.fields ?? []);

@@ -18,6 +18,7 @@ import { ValidationInspector, type ValidationInspectorTarget } from "./validatio
 import {
   getPolicyDataQueryOptions,
   useCreateSchema,
+  isSchemaNotFound,
   useSchemaDetails,
   useSchemaList,
 } from "../hooks/use-configuration";
@@ -33,6 +34,7 @@ import { MOTION, SHELL } from "../utils/motion";
 import { useLingeringValue } from "../hooks/use-lingering-value";
 import { AddEditSchemaModal } from "./add-edit-schema";
 import { CreateFirstSchemaPanel } from "./create-first-schema-panel";
+import { SchemaNotFoundPanel } from "./schema-not-found-panel";
 import ImportSchemaModal from "./import-schema-modal";
 import { SchemaBasicInfo } from "./schema-basic-info";
 import { SchemaRail } from "./schema-rail";
@@ -261,13 +263,21 @@ export const SchemaDetailsPage = () => {
     projectKey,
   });
 
-  const { data: schemaDetailsQuery, isLoading: isSchemaDetailsLoading } = useSchemaDetails(
+  const {
+    data: schemaDetailsQuery,
+    isLoading: isSchemaDetailsLoading,
+    error: schemaDetailsError,
+  } = useSchemaDetails(
     selectedSchemaId ?? "",
     projectKey,
     {
       enabled: Boolean(selectedSchemaId),
     },
   );
+  // The selected id has no schema (deleted, a system schema, or another project's). Other errors keep
+  // today's rendering. The panel replaces everything that would describe a schema, so nothing loaded
+  // for a previously selected one stays on screen under this id.
+  const isSelectedSchemaMissing = Boolean(selectedSchemaId) && isSchemaNotFound(schemaDetailsError);
   const { mutateAsync: createSchema } = useCreateSchema();
 
   // The page bar's own total read (same params, so the same cache entry: no extra request). Until it
@@ -320,6 +330,8 @@ export const SchemaDetailsPage = () => {
     setSchemaDetails({ ...EMPTY_SCHEMA, projectKey });
     handleListQueryChange({ schemaId: null });
   };
+
+  const backToSchemas = () => handleListQueryChange({ schemaId: null });
 
   /** Schema two-panel view: set list filter context and focused schema (URL stays in sync with sidebar). */
   const openSchemaInEditor = (schemaId: string | null) => {
@@ -466,35 +478,46 @@ export const SchemaDetailsPage = () => {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="min-w-0 truncate text-lg font-semibold">{schemaDetails.schemaName}</h2>
+              {!isSelectedSchemaMissing && (
+                <h2 className="min-w-0 truncate text-lg font-semibold">{schemaDetails.schemaName}</h2>
+              )}
             </div>
 
             {/* Mobile: show only when schema selected */}
             <div className={`${selectedSchemaId ? "flex" : "hidden"} flex-col lg:hidden`}>
-              <SchemaBasicInfo
-                {...schemaDetails}
-                onDeleteSuccess={onDeleteSchema}
-                isLoading={isSchemaDetailsLoading}
-                onOpenPreview={() => setIsPreviewOpen(true)}
-              />
-              <SchemaStructureTable
-                {...schemaDetails}
-                isLoading={isSchemaDetailsLoading}
-                onOpenStandaloneSchemaEditor={openSchemaInEditor}
-                isPreviewOpen={isPreviewOpen}
-                onPreviewOpenChange={setIsPreviewOpen}
-              />
+              {isSelectedSchemaMissing ? (
+                <SchemaNotFoundPanel onBackToSchemas={backToSchemas} />
+              ) : (
+                <>
+                  <SchemaBasicInfo
+                    {...schemaDetails}
+                    onDeleteSuccess={onDeleteSchema}
+                    isLoading={isSchemaDetailsLoading}
+                    onOpenPreview={() => setIsPreviewOpen(true)}
+                  />
+                  <SchemaStructureTable
+                    {...schemaDetails}
+                    isLoading={isSchemaDetailsLoading}
+                    onOpenStandaloneSchemaEditor={openSchemaInEditor}
+                    isPreviewOpen={isPreviewOpen}
+                    onPreviewOpenChange={setIsPreviewOpen}
+                    onSchemaGone={onDeleteSchema}
+                  />
+                </>
+              )}
             </div>
 
             {/* Desktop */}
             <div className="hidden min-h-0 flex-1 flex-col lg:flex">
-              {!selectedSchemaId ? (
+              {!selectedSchemaId && (
                 <CreateFirstSchemaPanel
                   hasSchemas={hasSchemas}
                   onCreateSchema={openAddSchemaModal}
                   onImportSchema={openImportModal}
                 />
-              ) : (
+              )}
+              {isSelectedSchemaMissing && <SchemaNotFoundPanel onBackToSchemas={backToSchemas} />}
+              {selectedSchemaId && !isSelectedSchemaMissing && (
                 <>
                   <SchemaBasicInfo
                     {...schemaDetails}
@@ -570,6 +593,7 @@ export const SchemaDetailsPage = () => {
                       })
                     }
                     onEnterEditMode={closeRightPanel}
+                    onSchemaGone={onDeleteSchema}
                   />
                 </>
               )}

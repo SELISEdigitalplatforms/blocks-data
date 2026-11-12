@@ -81,4 +81,12 @@ describe("NestedTreeRowView", () => {
     renderRow({ ...leaf, kind: "loading", path: "Home.(loading)" });
     expect(screen.getByText("Loading fields…")).toBeInTheDocument();
   });
+
+  it("says when the child schema no longer exists, in the same muted placeholder row (H7)", () => {
+    renderRow({ ...leaf, kind: "unavailable", path: "Home.(unavailable)" });
+    const text = screen.getByText("This schema no longer exists");
+    expect(text).toHaveClass("text-xs", "text-muted-foreground");
+    expect(screen.queryByText("Loading fields…")).not.toBeInTheDocument();
+    expect(text.closest("td")).toHaveAttribute("colspan", "6");
+  });
 });

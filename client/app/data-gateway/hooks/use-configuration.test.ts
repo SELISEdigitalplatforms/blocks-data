@@ -1,14 +1,22 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   GraphQLSchema,
   buildSchema,
   introspectionFromSchema,
 } from "graphql";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
+import { mockHttpClientFactory } from "@/test-utils/__mocks__";
+import { HttpError } from "@/lib/http-client";
 import { configurationService } from "../services/configuration.service";
 import {
   getPolicyDataQueryOptions,
+  isSchemaNotFound,
+  refreshSchemaLists,
+  removeSchemaDetails,
+  shouldRetrySchemaDetails,
   useCreatePolicy,
   useCreateSchema,
   useCreateSchemaFieldValidation,
@@ -32,6 +40,7 @@ import {
   usePendingSchemaIds,
   useSchemaRollback,
   useSchemasReload,
+  useSchemaVariableContext,
   useSchemaVersionHistory,
   useSecurityAndPerformanceSchemaList,
   useSetDataAccess,
@@ -51,6 +60,9 @@ vi.mock("@seliseblocks/genesis-os", () => {
     mockGetState();
   return { useProjectStore };
 });
+
+// use-configuration reads HttpError from here; the real module builds HttpClients at import.
+vi.mock("@/lib/http-client", () => mockHttpClientFactory());
 
 vi.mock("../services/configuration.service", () => ({
   configurationService: {
@@ -84,6 +96,27 @@ vi.mock("../services/configuration.service", () => ({
     importSchemaFile: vi.fn(),
   },
 }));
+
+/** The §6.1 body the server sends with a not-found answer. */
+const SCHEMA_NOT_FOUND_BODY = {
+  isSuccess: false,
+  message: "Schema not found",
+  httpStatusCode: 404,
+  data: null,
+  errors: null,
+};
+const notFound = () => new HttpError(404, { errors: SCHEMA_NOT_FOUND_BODY as never });
+
+/**
+ * A client like the app's (no query-level retry override), with no delay between retries so a
+ * retried failure settles at once. The schema-details options bring their own `retry`.
+ */
+const retryingClient = () =>
+  new QueryClient({ defaultOptions: { queries: { retry: 1, retryDelay: 0 } } });
+const wrapperFor = (queryClient: QueryClient) =>
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
 
 // A valid introspection result so buildClientSchema can succeed.
 const validIntrospection = introspectionFromSchema(
@@ -211,6 +244,130 @@ describe("use-configuration hooks", () => {
 
       expect(result.current.fetchStatus).toBe("idle");
       expect(configurationService.getSchemaDetails).not.toHaveBeenCalled();
+    });
+
+    // C6: a 4xx is final (one request per mount); a 5xx or a failed request is retried once, as today.
+    it.each([
+      ["a 404", 1, () => notFound()],
+      ["a 400", 1, () => new HttpError(400, { errors: { message: "INVALID_SCHEMA_ID" } })],
+      ["a 403", 1, () => new HttpError(403, { errors: {} })],
+      ["a 500", 2, () => new HttpError(500, { errors: {} })],
+      ["a non-HTTP error", 2, () => new TypeError("Failed to fetch")],
+    ])("asks for the schema once more only after a 5xx or a failed request: %s means %i request(s)", async (_label, calls, makeError) => {
+      vi.mocked(configurationService.getSchemaDetails).mockRejectedValue(makeError());
+
+      const { result } = renderHook(() => useSchemaDetails("gone", "pk"), {
+        wrapper: wrapperFor(retryingClient()),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(configurationService.getSchemaDetails).toHaveBeenCalledTimes(calls);
+    });
+
+    it("exposes a 404 as a not-found error", async () => {
+      vi.mocked(configurationService.getSchemaDetails).mockRejectedValue(notFound());
+
+      const { result } = renderHook(() => useSchemaDetails("gone", "pk"), {
+        wrapper: wrapperFor(retryingClient()),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(isSchemaNotFound(result.current.error)).toBe(true);
+    });
+  });
+
+  describe("isSchemaNotFound", () => {
+    it("is true only for an HttpError with status 404", () => {
+      expect(isSchemaNotFound(notFound())).toBe(true);
+      expect(isSchemaNotFound(new HttpError(400, { errors: {} }))).toBe(false);
+      expect(isSchemaNotFound(new HttpError(500, { errors: {} }))).toBe(false);
+      expect(isSchemaNotFound(Object.assign(new Error("x"), { status: 404 }))).toBe(false);
+      expect(isSchemaNotFound(null)).toBe(false);
+      expect(isSchemaNotFound(undefined)).toBe(false);
+    });
+  });
+
+  describe("shouldRetrySchemaDetails", () => {
+    it("never retries a 4xx", () => {
+      for (const status of [400, 401, 403, 404, 409, 499]) {
+        expect(shouldRetrySchemaDetails(0, new HttpError(status, { errors: {} }))).toBe(false);
+      }
+    });
+
+    it("retries anything else once", () => {
+      for (const error of [new HttpError(500, { errors: {} }), new HttpError(503, { errors: {} }), new Error("network")]) {
+        expect(shouldRetrySchemaDetails(0, error)).toBe(true);
+        expect(shouldRetrySchemaDetails(1, error)).toBe(false);
+      }
+    });
+  });
+
+  describe("useSchemaVariableContext", () => {
+    it("asks a 404 once, like the other schema-details readers (C15)", async () => {
+      vi.mocked(configurationService.getSchemaDetails).mockRejectedValue(notFound());
+      const queryClient = retryingClient();
+
+      renderHook(() => useSchemaVariableContext("gone", "pk"), { wrapper: wrapperFor(queryClient) });
+
+      await waitFor(() => expect(queryClient.getQueryState(["schema-details", "gone", "pk"])?.status).toBe("error"));
+      expect(configurationService.getSchemaDetails).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries a 500 once (C15)", async () => {
+      vi.mocked(configurationService.getSchemaDetails).mockRejectedValue(new HttpError(500, { errors: {} }));
+      const queryClient = retryingClient();
+
+      renderHook(() => useSchemaVariableContext("s1", "pk"), { wrapper: wrapperFor(queryClient) });
+
+      await waitFor(() => expect(queryClient.getQueryState(["schema-details", "s1", "pk"])?.status).toBe("error"));
+      expect(configurationService.getSchemaDetails).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps reusing fresh details for a minute on the next mount (C15)", async () => {
+      vi.mocked(configurationService.getSchemaDetails).mockResolvedValue({
+        data: { schemaName: "Employee", fields: [] },
+      } as never);
+      const queryClient = retryingClient();
+
+      const first = renderHook(() => useSchemaVariableContext("s1", "pk"), { wrapper: wrapperFor(queryClient) });
+      await waitFor(() => expect(first.result.current.schemaName).toBe("Employee"));
+      first.unmount();
+      const second = renderHook(() => useSchemaVariableContext("s1", "pk"), { wrapper: wrapperFor(queryClient) });
+
+      expect(second.result.current.schemaName).toBe("Employee");
+      expect(configurationService.getSchemaDetails).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("removeSchemaDetails and refreshSchemaLists", () => {
+    it("removeSchemaDetails drops only that schema's details for that project", () => {
+      const queryClient = new QueryClient();
+      queryClient.setQueryData(["schema-details", "s1", "pk"], { data: {} });
+      queryClient.setQueryData(["schema-details", "s2", "pk"], { data: {} });
+      queryClient.setQueryData(["schema-details", "s1", "other"], { data: {} });
+
+      removeSchemaDetails(queryClient, "s1", "pk");
+
+      expect(queryClient.getQueryState(["schema-details", "s1", "pk"])).toBeUndefined();
+      expect(queryClient.getQueryData(["schema-details", "s2", "pk"])).toBeDefined();
+      expect(queryClient.getQueryData(["schema-details", "s1", "other"])).toBeDefined();
+    });
+
+    it("refreshSchemaLists invalidates the schema lists, change logs and security list of the project", () => {
+      const queryClient = new QueryClient();
+      const listKey = ["schema-list", "", 1, 10, true, "", "pk", ""];
+      const otherProjectListKey = ["schema-list", "", 1, 10, true, "", "other", ""];
+      for (const key of [listKey, otherProjectListKey, ["unadapted-change-logs", "pk"], ["security-performance-schema-list", "pk"], ["schema-details", "s1", "pk"]]) {
+        queryClient.setQueryData(key, {});
+      }
+
+      refreshSchemaLists(queryClient, "pk");
+
+      expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(["unadapted-change-logs", "pk"])?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(["security-performance-schema-list", "pk"])?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(otherProjectListKey)?.isInvalidated).toBe(false);
+      expect(queryClient.getQueryState(["schema-details", "s1", "pk"])?.isInvalidated).toBe(false);
     });
   });
 
@@ -653,6 +810,24 @@ describe("use-configuration hooks", () => {
       result.current.mutate(payload);
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(configurationService.deleteSchema).toHaveBeenCalledWith(payload);
+    });
+
+    // The caller removes the deleted schema's details once the page has let go of its id (A8, C9).
+    it("leaves the deleted schema's details to the caller and refreshes the lists", async () => {
+      vi.mocked(configurationService.deleteSchema).mockResolvedValue({ isSuccess: true } as never);
+      const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+      const removeQueries = vi.spyOn(queryClient, "removeQueries");
+      queryClient.setQueryData(["schema-details", "s1", "t1"], { data: {} });
+      queryClient.setQueryData(["unadapted-change-logs", "t1"], {});
+      queryClient.setQueryData(["security-performance-schema-list", "t1"], {});
+
+      const { result } = renderHook(() => useDeleteSchema(), { wrapper: wrapperFor(queryClient) });
+      await act(() => result.current.mutateAsync({ id: "s1", projectKey: "t1" }));
+
+      expect(removeQueries).not.toHaveBeenCalled();
+      expect(queryClient.getQueryData(["schema-details", "s1", "t1"])).toBeDefined();
+      expect(queryClient.getQueryState(["unadapted-change-logs", "t1"])?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(["security-performance-schema-list", "t1"])?.isInvalidated).toBe(true);
     });
 
     it("should surface delete errors", async () => {

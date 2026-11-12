@@ -229,7 +229,7 @@ public class GenesisDataAccessTests
             Builders<SchemaDefinition>.Filter.Empty, Builders<SchemaDefinition>.Update.Set(s => s.SchemaType, SchemaType.Entity));
         var service = NewSchemaService();
 
-        (await service.GetSchemaByIdAsync("sch-system-user")).HttpStatusCode.Should().Be(204);
+        (await service.GetSchemaByIdAsync("sch-system-user")).HttpStatusCode.Should().Be(404);
         (await service.GetSchemaByIdAsync("sch-order")).IsSuccess.Should().BeTrue();
 
         (await service.GetEntityCollectionByNameAsync("User")).HttpStatusCode.Should().Be(404);
@@ -262,22 +262,28 @@ public class GenesisDataAccessTests
         var service = NewSchemaService();
 
         (await service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "sch-system-user", SchemaName = "Renamed", CollectionName = "Users", SchemaType = SchemaType.Entity }))
-            .HttpStatusCode.Should().Be(204);
+            .HttpStatusCode.Should().Be(404);
         (await service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
         {
             ItemId = "sch-system-user", SchemaName = "Renamed", CollectionName = "Users", SchemaType = SchemaType.Entity,
             Fields = [new FieldDefinitionRequest { Name = "Evil", Type = "String" }]
-        })).HttpStatusCode.Should().Be(204);
+        })).HttpStatusCode.Should().Be(404);
         (await service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
         {
             SchemaDefinitionItemId = "sch-system-user", Fields = [new FieldDefinitionRequest { Name = "Evil", Type = "String" }]
-        })).HttpStatusCode.Should().Be(204);
-        (await service.DeleteSchemaAsync("sch-system-user")).HttpStatusCode.Should().Be(204);
+        })).HttpStatusCode.Should().Be(404);
+        (await service.DeleteSchemaAsync("sch-system-user")).HttpStatusCode.Should().Be(404);
+        (await service.SetFieldDefaultAsync(new SetFieldDefaultRequest
+        {
+            SchemaId = "sch-system-user", FieldName = "Email",
+            DefaultValue = new FieldDefaultValueRequest { Kind = DefaultValueKind.Static, Value = "Evil" }
+        })).HttpStatusCode.Should().Be(404);
 
         var stored = await StoredAsync("sch-system-user");
         stored.SchemaName.Should().Be("User");
         stored.IsSystemEntity.Should().BeTrue();
         stored.Fields.Select(f => f.Name).Should().Equal("Email", "Roles");
+        stored.Fields.Should().OnlyContain(f => f.DefaultValue == null);
     }
 
     [Fact]

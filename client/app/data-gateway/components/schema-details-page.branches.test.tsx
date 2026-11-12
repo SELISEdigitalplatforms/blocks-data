@@ -1,6 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// The real Node process: genesis-os replaces the global `process` in the browser bundle.
+import nodeProcess from "node:process";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
 import { MemoryRouter } from "react-router";
 
@@ -9,6 +12,7 @@ const setQueryParams = vi.fn();
 const createSchema = vi.fn();
 const showSuccessToast = vi.fn();
 const showErrorToast = vi.fn();
+const getSchemaDetails = vi.hoisted(() => vi.fn());
 
 let params: Record<string, unknown> = {
   type: "all",
@@ -59,15 +63,27 @@ const createSchemaHook = { mutateAsync: createSchema };
 const changeLogsResult = { data: { data: [] as unknown[] } };
 const schemaDetailsResult = { data: { data: schemaData }, isLoading: false };
 
-vi.mock("../hooks/use-configuration", () => ({
-  getPolicyDataQueryOptions: () => policyOptions,
-  useCreateSchema: () => createSchemaHook,
-  useGetUnadaptedChangeLogs: () => changeLogsResult,
-  useSchemaDetails: () => schemaDetailsResult,
-  useSchemaList: () => ({ data: { data: { totalCount: 0 } } }),
-}));
+// Most tests use the fixed result above; the not-found tests switch to the real query hook
+// (and the real HttpError), with only the service call stubbed.
+const schemaDetailsHook = vi.hoisted(() => ({ useReal: false }));
 
-vi.mock("@seliseblocks/genesis-os", () => ({
+vi.mock("../hooks/use-configuration", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/use-configuration")>();
+  return {
+    getPolicyDataQueryOptions: () => policyOptions,
+    useCreateSchema: () => createSchemaHook,
+    useGetUnadaptedChangeLogs: () => changeLogsResult,
+    useSchemaDetails: (...args: Parameters<typeof actual.useSchemaDetails>) =>
+      schemaDetailsHook.useReal ? actual.useSchemaDetails(...args) : schemaDetailsResult,
+    useSchemaList: () => ({ data: { data: { totalCount: 0 } } }),
+    isSchemaNotFound: actual.isSchemaNotFound,
+  };
+});
+
+vi.mock("../services/configuration.service", () => ({ configurationService: { getSchemaDetails } }));
+
+vi.mock("@seliseblocks/genesis-os", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@seliseblocks/genesis-os")>()),
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 vi.mock("@/hooks/use-scoped-path", () => ({ useDataGatewayPath: () => "/dg" }));
@@ -80,15 +96,22 @@ vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://api" }));
 vi.mock("./schema-structure", () => ({
   default: ({
     onOpenStandaloneSchemaEditor,
+    onSchemaGone,
   }: {
     onOpenStandaloneSchemaEditor: (id: string) => void;
+    onSchemaGone?: () => void;
   }) => (
-    <button
-      data-testid="open-standalone"
-      onClick={() => onOpenStandaloneSchemaEditor("s9")}
-    >
-      structure
-    </button>
+    <>
+      <button
+        data-testid="open-standalone"
+        onClick={() => onOpenStandaloneSchemaEditor("s9")}
+      >
+        structure
+      </button>
+      <button data-testid="schema-gone" onClick={() => onSchemaGone?.()}>
+        schema-gone
+      </button>
+    </>
   ),
 }));
 vi.mock("./security-and-performance/security-and-performance", () => ({
@@ -181,6 +204,8 @@ vi.mock("./import-schema-modal", () => ({
   default: () => <div data-testid="import-schema-modal" />,
 }));
 
+import { HttpError } from "@seliseblocks/genesis-os";
+import { attachQueryErrorReporting } from "@seliseblocks/genesis-os/observability";
 import { SchemaDetailsPage } from "./schema-details-page";
 
 function renderPage() {
@@ -283,6 +308,19 @@ describe("SchemaDetailsPage - interactions", () => {
     );
   });
 
+  it("clears the selection when either structure table finds the schema gone on save (H9)", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const [mobile, desktop] = screen.getAllByTestId("schema-gone");
+
+    await user.click(mobile);
+    await user.click(desktop);
+
+    expect(setQueryParams).toHaveBeenCalledTimes(2);
+    expect(setQueryParams).toHaveBeenNthCalledWith(1, { schemaId: null }, { history: "push" });
+    expect(setQueryParams).toHaveBeenNthCalledWith(2, { schemaId: null }, { history: "push" });
+  });
+
   it("opens a schema in the editor from the structure table", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -302,5 +340,117 @@ describe("SchemaDetailsPage - interactions", () => {
       { history: "push" },
     );
   });
+});
 
+describe("SchemaDetailsPage - schema not found", () => {
+  const SCHEMA_NOT_FOUND_BODY = { isSuccess: false, message: "Schema not found", httpStatusCode: 404, data: null, errors: null };
+  const notFound = () => new HttpError(404, { errors: SCHEMA_NOT_FOUND_BODY as never });
+  const schemaNamed = (id: string, schemaName: string) => ({ data: { ...schemaData, id, schemaName } });
+  const requestsFor = (id: string) => getSchemaDetails.mock.calls.filter(([requested]) => requested === id).length;
+
+  let queryClient: QueryClient;
+  const rollbar = { error: vi.fn() };
+  const unhandled = vi.fn();
+  let detachReporting: () => void;
+
+  /** The app's query client (global retry: 1) with the app's error reporting attached. */
+  function renderWithAppClient() {
+    queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: 1, retryDelay: 0 } } });
+    detachReporting = attachQueryErrorReporting(queryClient, rollbar as never);
+    const ui = () => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/dg"]}>
+          <SchemaDetailsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const view = render(ui());
+    return { select: (schemaId: string | null) => { params = { ...params, schemaId }; view.rerender(ui()); } };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    schemaDetailsHook.useReal = true;
+    params = { type: "all", schemaId: "gone", page: 1, pageSize: 20 };
+    getSchemaDetails.mockImplementation((id: string) => {
+      if (id === "gone") return Promise.reject(notFound());
+      if (id === "broken") return Promise.reject(new HttpError(500, { errors: {} }));
+      return Promise.resolve(schemaNamed(id, id === "s2" ? "Orders" : "Products"));
+    });
+    nodeProcess.on("unhandledRejection", unhandled);
+  });
+
+  afterEach(() => {
+    schemaDetailsHook.useReal = false;
+    detachReporting?.();
+    nodeProcess.off("unhandledRejection", unhandled);
+  });
+
+  it("shows the not-found panel instead of the details, at both widths, after one request (H4, C6, C7)", async () => {
+    renderWithAppClient();
+
+    // Mobile and desktop each render their own panel (CSS shows one).
+    await waitFor(() => expect(screen.getAllByRole("heading", { name: "Schema not found" })).toHaveLength(2));
+    expect(screen.getAllByRole("status")).toHaveLength(2);
+    expect(screen.getAllByText("This schema no longer exists or is not part of this project.")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Back to schemas" })).toHaveLength(2);
+    expect(screen.queryByTestId("delete-success")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("open-standalone")).not.toBeInTheDocument();
+    // The mobile header keeps its back arrow.
+    expect(screen.getByRole("button", { name: "Back to schema list" })).toBeInTheDocument();
+
+    // A refocused tab doesn't ask again, and the panel stays.
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    focusManager.setFocused(undefined);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getAllByRole("heading", { name: "Schema not found" })).toHaveLength(2);
+    expect(requestsFor("gone")).toBe(1);
+    expect(rollbar.error).not.toHaveBeenCalled();
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  it("goes back to the schema list with a history push (H5)", async () => {
+    const user = userEvent.setup();
+    renderWithAppClient();
+    const [, desktopBack] = await screen.findAllByRole("button", { name: "Back to schemas" });
+
+    await user.click(desktopBack);
+
+    expect(setQueryParams).toHaveBeenCalledWith({ schemaId: null }, { history: "push" });
+  });
+
+  it("shows nothing of the previous schema under a missing one, and a later schema loads normally (C8, H6)", async () => {
+    params = { ...params, schemaId: "s1" };
+    const { select } = renderWithAppClient();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument());
+
+    select("gone");
+
+    await waitFor(() => expect(screen.getAllByRole("heading", { name: "Schema not found" })).toHaveLength(2));
+    expect(screen.queryByText("Products")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("delete-success")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("open-standalone")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("access-inspector")).not.toBeInTheDocument();
+
+    select("s2");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Orders" })).toBeInTheDocument());
+    expect(screen.queryByRole("heading", { name: "Schema not found" })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("delete-success").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("open-standalone").length).toBeGreaterThan(0);
+    expect(requestsFor("gone")).toBe(1);
+  });
+
+  it("keeps today's rendering for errors other than 404", async () => {
+    params = { ...params, schemaId: "broken" };
+    renderWithAppClient();
+
+    await waitFor(() => expect(queryClient.getQueryState(["schema-details", "broken", "t1"])?.status).toBe("error"));
+    expect(requestsFor("broken")).toBe(2);
+    expect(screen.queryByRole("heading", { name: "Schema not found" })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("delete-success").length).toBeGreaterThan(0);
+  });
 });

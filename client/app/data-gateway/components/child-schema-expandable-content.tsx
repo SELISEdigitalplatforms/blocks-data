@@ -1,6 +1,7 @@
 "use client";
 
-import { useSchemaDetails } from "../hooks/use-configuration";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+import { isSchemaNotFound, useSchemaDetails } from "../hooks/use-configuration";
 import { IField, ISchemaDetails } from "../models/data-service";
 import {
   createEmptyAccessRuleSet,
@@ -87,9 +88,14 @@ export function ChildSchemaExpandableContent({
   policyEntitySchemaName,
   onOpenStandaloneSchemaEditor,
 }: ChildSchemaExpandableContentProps) {
+  const { t } = useT("data.gateway.schema");
   // OperationAccess is a fixed platform shape, not a project schema: nothing to fetch.
   const isOperationAccess = schemaId === OPERATION_ACCESS_SCHEMA_ID;
-  const { data: schemaDetailsQuery, isLoading } = useSchemaDetails(schemaId, projectKey, { enabled: !isOperationAccess });
+  const {
+    data: schemaDetailsQuery,
+    isLoading,
+    error,
+  } = useSchemaDetails(schemaId, projectKey, { enabled: !isOperationAccess });
   const res = schemaDetailsQuery?.data;
   const fetched: ISchemaDetails | null = res
     ? {
@@ -126,6 +132,15 @@ export function ChildSchemaExpandableContent({
   );
 
   const resolvedAncestorPath = ancestorPath ?? (parentPropertyName ? [parentPropertyName] : []);
+
+  // The child schema no longer exists: say so, rather than showing it as an empty table.
+  if (!isOperationAccess && isSchemaNotFound(error)) {
+    return (
+      <div className="min-w-0 max-w-full bg-muted/20">
+        <p className="py-3 text-sm text-muted-foreground">{t("CHILD_SCHEMA_EXPANDABLE_CONTENT.SCHEMA_UNAVAILABLE")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-w-0 max-w-full bg-muted/20">

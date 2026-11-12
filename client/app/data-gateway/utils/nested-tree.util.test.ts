@@ -18,7 +18,7 @@ const geoPoint = schema("GeoPoint", [field("Lat", "Float"), field("Lng", "Float"
 const address = schema("Address", [field("Street"), field("City"), field("Geo", "GeoPoint")]);
 const schemas: Record<string, ISchemaDetails> = { GeoPoint: geoPoint, Address: address };
 
-function contextWith(open: string[], loaded: Record<string, IField[] | null> = {}): TreeContext {
+function contextWith(open: string[], loaded: Record<string, IField[] | null | "unavailable"> = {}): TreeContext {
   return {
     isExpanded: (path) => open.includes(path),
     findChild: (type) => (type ? schemas[type] : undefined),
@@ -52,6 +52,21 @@ describe("nestedRows", () => {
     ]);
     expect(nestedRows({ path: "Home", field: undefined, childSchema: address }, ["Employee"], contextWith([], { Address: [] }))).toMatchObject([
       { kind: "empty" },
+    ]);
+  });
+
+  it("shows one unavailable row for a child schema that no longer exists, and leaves its siblings alone (H7)", () => {
+    expect(nestedRows({ path: "Home", field: undefined, childSchema: address }, ["Employee"], contextWith([], { Address: "unavailable" }))).toEqual([
+      expect.objectContaining({ kind: "unavailable", path: "Home.(unavailable)", depth: 1, guides: ["end"], childSchema: null, isExpanded: false }),
+    ]);
+
+    // Geo is open but its GeoPoint is gone: only Geo's branch changes; Street and City stay.
+    const rows = nestedRows({ path: "Home", field: undefined, childSchema: address }, ["Employee"], contextWith(["Home.Geo"], { GeoPoint: "unavailable" }));
+    expect(rows.map((r) => `${r.path} ${r.kind}`)).toEqual([
+      "Home.Street field",
+      "Home.City field",
+      "Home.Geo field",
+      "Home.Geo.(unavailable) unavailable",
     ]);
   });
 

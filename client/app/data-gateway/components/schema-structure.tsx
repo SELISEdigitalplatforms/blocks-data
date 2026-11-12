@@ -31,7 +31,9 @@ import { SchemaPreviewDrawer } from "./schema-preview-drawer";
 import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-field-validation-drawer";
 import { DefaultValueDrawer } from "./default-value/default-value-drawer";
 import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
-import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
+import { mapIndexErrorFromException, mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
+import { HttpError } from "@/lib/http-client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
 import { defaultProperty, PropertyRow } from "../models/schema-structure.types";
@@ -39,6 +41,9 @@ import { useBulkOperations } from "../hooks/use-bulk-operations";
 import { useSchemaPreview } from "../hooks/use-schema-preview";
 import { useDtoPreviewMap } from "../hooks/use-dto-preview-map";
 import {
+  isSchemaNotFound,
+  refreshSchemaLists,
+  removeSchemaDetails,
   usePendingSchemaIds,
   useRawIntrospectionQuery,
   useUpdateSchemaStructure,
@@ -197,6 +202,11 @@ interface SchemaStructureTableProps extends ISchemaDetails {
    * that's mid-edit or gone.
    */
   onEnterEditMode?: () => void;
+  /**
+   * A save found the schema gone (404, e.g. deleted in another tab): the host clears its selection.
+   * Only the top-level table can save, so only it passes this.
+   */
+  onSchemaGone?: () => void;
 }
 
 export default function SchemaStructureTable(props: SchemaStructureTableProps) {
@@ -218,6 +228,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     isPreviewOpen,
     onPreviewOpenChange,
     onEnterEditMode,
+    onSchemaGone,
     ...schemaDetails
   } = props;
 
@@ -228,6 +239,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     ancestorPath ?? (parentPropertyName ? [parentPropertyName] : []);
   const isEmbedded = compactView ?? false;
   const schemaType = schemaDetails.schemaType;
+  const queryClient = useQueryClient();
   const { mutateAsync } = useUpdateSchemaStructure();
   const {
     control,
@@ -496,19 +508,50 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     saveSchemaStructure(pendingPayload);
   };
 
+  const clearPendingPayload = () =>
+    setPendingPayload({
+      fields: [],
+      schemaDefinitionItemId: schemaDetails.id,
+      deletableFieldNames: [],
+      projectKey: projectKey,
+    });
+
+  /** A save that threw: every HTTP error is handled here, so none is left as an unhandled rejection. */
+  const handleSaveError = (error: unknown) => {
+    if (isSchemaNotFound(error)) {
+      // The schema is gone: nothing left to edit. Leave edit mode as Cancel does, let the host drop the
+      // selection, and only then forget its details, so the details view doesn't fetch it again.
+      showErrorToast({ errors: tx("SCHEMA_DETAILS_PAGE.SCHEMA_NO_LONGER_EXISTS") });
+      discardEdits();
+      clearPendingPayload();
+      onSchemaGone?.();
+      removeSchemaDetails(queryClient, schemaDetails.id, projectKey);
+      refreshSchemaLists(queryClient, projectKey);
+      return;
+    }
+    // Any other failure keeps edit mode and the unsaved rows, so the user can fix and retry.
+    if (error instanceof HttpError) {
+      showErrorToast({ errors: mapIndexErrorFromException(error) ?? error.errors });
+      return;
+    }
+    // No errors to show: the toast falls back to "An unexpected error occurred."
+    showErrorToast({ errors: undefined });
+  };
+
   const saveSchemaStructure = async (payload: IUpdateSchemaStructure) => {
-    const res = await mutateAsync(payload);
+    let res: Awaited<ReturnType<typeof mutateAsync>>;
+    try {
+      res = await mutateAsync(payload);
+    } catch (error) {
+      handleSaveError(error);
+      return;
+    }
 
     if (res.isSuccess) {
       showSuccessToast({ description: tx("SCHEMA_STRUCTURE.SCHEMA_UPDATED_SUCCESSFULLY") });
       setIsEditMode(false);
       bulkOperations.setSelectedRows({});
-      setPendingPayload({
-        fields: [],
-        schemaDefinitionItemId: schemaDetails.id,
-        deletableFieldNames: [],
-        projectKey: projectKey,
-      });
+      clearPendingPayload();
       addPropertyScroll.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
@@ -604,15 +647,21 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     setIsPropertyAccessDrawerOpen(true);
   };
 
+  /**
+   * Leaves edit mode without saving. Cancelling used to put the original names back onto the current
+   * rows by index, so a delete anywhere but the end left every later row wearing its neighbour's name.
+   * Restore the rows that were loaded instead.
+   */
+  const discardEdits = () => {
+    reset({ properties: originalRowsRef.current });
+    originalByIdRef.current = {};
+    bulkOperations.setSelectedRows({});
+    setIsEditMode(false);
+  };
+
   const handleEditToggle = () => {
     if (isEditMode) {
-      // Cancelling used to put the original names back onto the current rows by
-      // index, so a delete anywhere but the end left every later row wearing
-      // its neighbour's name. Restore the rows that were loaded instead.
-      reset({ properties: originalRowsRef.current });
-      originalByIdRef.current = {};
-      bulkOperations.setSelectedRows({});
-      setIsEditMode(false);
+      discardEdits();
       return;
     }
 
@@ -741,7 +790,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               <h3 className="wrap-break-word text-base font-semibold leading-snug text-foreground sm:text-lg">
                 <span className="font-medium">{schemaDetails.schemaName}</span>{" "}
                 {tx("SCHEMA_STRUCTURE.DOESN_T_HAVE_ANY")}{" "}
-                {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : "property"} {tx("SCHEMA_STRUCTURE.YET")}
+                {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : tx("SCHEMA_STRUCTURE.PROPERTY_LOWERCASE")} {tx("SCHEMA_STRUCTURE.YET")}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {tx("SCHEMA_STRUCTURE.NESTED_CHILD_SCHEMAS_CANNOT_BE_EDITED")}
@@ -767,7 +816,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           <div className="space-y-2">
             <h3 className="wrap-break-word px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
               {tx("SCHEMA_STRUCTURE.THIS_SCHEMA_DOESN_T_HAVE_ANY")}{" "}
-              {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : "property"} {tx("SCHEMA_STRUCTURE.YET_CLICK_ADD_PROPERTY_TO_SET")}
+              {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : tx("SCHEMA_STRUCTURE.PROPERTY_LOWERCASE")} {tx("SCHEMA_STRUCTURE.YET_CLICK_ADD_PROPERTY_TO_SET")}
             </h3>
           </div>
           <Button

@@ -123,6 +123,8 @@
   "GRAPH_LOG_HISTORY.NO_REQUESTS_IN_THIS_RANGE": "No requests in this range.",
   "GRAPH_LOG_HISTORY.OPERATION_TYPE": "Operation type",
   "GRAPH_LOG_HISTORY.QUERY": "Query",
+  "GRAPH_LOG_HISTORY.REQUEST_COUNT_one": "{{count}} request",
+  "GRAPH_LOG_HISTORY.REQUEST_COUNT_other": "{{count}} requests",
   "GRAPH_LOG_HISTORY.REQUEST_LOG": "Request log",
   "GRAPH_LOG_HISTORY.RESPONSE_STATUS": "Response status",
   "GRAPH_LOG_HISTORY.REST": "REST",

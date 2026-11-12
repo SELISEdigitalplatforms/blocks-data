@@ -156,7 +156,7 @@ export const CleanTestDataModal = ({
                     <span className="text-xs font-medium text-foreground">
                       {item.collectionName}
                       <span className="ml-1 text-muted-foreground">
-                        ({item.count} {item.count === 1 ? "record" : "records"})
+                        ({t("CLEAN_TEST_DATA_MODAL.RECORD_COUNT", { count: item.count })})
                       </span>
                     </span>
                   </label>

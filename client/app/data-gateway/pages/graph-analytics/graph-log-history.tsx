@@ -170,7 +170,7 @@ export const GraphLogHistory = ({
       <AnalyticsCard icon={History} title={t("GRAPH_LOG_HISTORY.REQUEST_LOG")} contentClassName="flex flex-col gap-4 p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
           <span className="text-sm text-muted-foreground">
-            {totalCount} {totalCount === 1 ? "request" : "requests"}
+            {t("GRAPH_LOG_HISTORY.REQUEST_COUNT", { count: totalCount })}
           </span>
           <div className="flex items-center gap-2">
             <Select

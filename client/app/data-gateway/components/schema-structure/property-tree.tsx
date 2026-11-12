@@ -103,10 +103,11 @@ export function TreeToggle({
 
 /** "3 fields" beside an object property's name. */
 export function FieldCount({ count }: Readonly<{ count: number | undefined }>) {
+  const { t } = useT("data.gateway.schema");
   if (!count) return null;
   return (
     <span className="shrink-0 rounded-full border border-border/60 px-1.5 text-[10.5px] leading-4 text-muted-foreground">
-      {count} {count === 1 ? "field" : "fields"}
+      {t("PROPERTY_TREE.FIELD_COUNT", { count })}
     </span>
   );
 }
@@ -136,18 +137,29 @@ export interface NestedRowActions {
   onOpenDefault: (path: string, field: IField) => void;
 }
 
-/** The loading or empty line under an expanded object, across every column. */
+type PlaceholderKind = Exclude<NestedTreeRow["kind"], "field">;
+type PlaceholderRow = NestedTreeRow & { kind: PlaceholderKind };
+
+const isPlaceholderRow = (row: NestedTreeRow): row is PlaceholderRow => row.kind !== "field";
+
+const PLACEHOLDER_TEXT_KEYS: Record<PlaceholderKind, string> = {
+  loading: "PROPERTY_TREE.LOADING_FIELDS",
+  empty: "PROPERTY_TREE.NO_FIELDS_YET",
+  unavailable: "PROPERTY_TREE.SCHEMA_UNAVAILABLE",
+};
+
+/** The loading, empty or unavailable line under an expanded object, across every column. */
 function NestedTreePlaceholderRow({
   row,
   columnCount,
-}: Readonly<{ row: Exclude<NestedTreeRow, { kind: "field" }>; columnCount: number }>) {
+}: Readonly<{ row: PlaceholderRow; columnCount: number }>) {
   const { t } = useT("data.gateway.schema");
   return (
     <TableRow className="bg-muted/20 hover:bg-muted/20">
       <TableCell colSpan={columnCount} className="relative py-2.5 align-middle">
         <TreeGuides guides={row.guides} />
         <span style={treeIndent(row.depth)} className="block pl-6 text-xs text-muted-foreground">
-          {row.kind === "loading" ? t("PROPERTY_TREE.LOADING_FIELDS") : t("PROPERTY_TREE.NO_FIELDS_YET")}
+          {t(PLACEHOLDER_TEXT_KEYS[row.kind])}
         </span>
       </TableCell>
     </TableRow>
@@ -179,7 +191,7 @@ export function NestedTreeRowView({
   actions: NestedRowActions;
 }>) {
   const { t } = useT("data.gateway.schema");
-  if (row.kind !== "field") return <NestedTreePlaceholderRow row={row} columnCount={columnCount} />;
+  if (isPlaceholderRow(row)) return <NestedTreePlaceholderRow row={row} columnCount={columnCount} />;
 
   const { field, path } = row;
   const isObject = Boolean(row.childSchema);

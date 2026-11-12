@@ -62,11 +62,14 @@ public class DataGatewayControllerTests
     [Theory]
     [InlineData("", 400)]
     [InlineData("id-1", 200)]
+    [InlineData("missing", 404)]
     public async Task Schema_GetById_ValidatesAndDelegates(string id, int expected)
     {
         var svc = new Mock<ISchemaDefinitionService>();
         svc.Setup(s => s.GetSchemaByIdAsync("id-1"))
             .ReturnsAsync(new ServiceResponse<SchemaDefinitionResponse>().SetSuccess(new SchemaDefinitionResponse()));
+        svc.Setup(s => s.GetSchemaByIdAsync("missing"))
+            .ReturnsAsync(new ServiceResponse<SchemaDefinitionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(404));
         var controller = new SchemaController(svc.Object, new Mock<ISchemaChangeLogService>().Object);
 
         Status(await controller.GetSchemaDefinitionByIdAsync(id)).Should().Be(expected);
@@ -128,6 +131,63 @@ public class DataGatewayControllerTests
         Status(await controller.UpdateSchema(new UpdateSchemaRequest())).Should().Be(200);
         Status(await controller.DeleteSchemaDefinitionAsync("id-1")).Should().Be(200);
         Status(await controller.DeleteSchemaDefinitionAsync("")).Should().Be(400);
+    }
+
+    private static ServiceResponse<ActionResponse> SchemaNotFound() =>
+        new ServiceResponse<ActionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(404);
+
+    /// <summary>The service's 404 reaches the client as a 404 whose body is that same response (no 204, no rewrite).</summary>
+    private static void ShouldPassThrough404<T>(IActionResult result, ServiceResponse<T> response)
+    {
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(404);
+        objectResult.Value.Should().BeSameAs(response);
+    }
+
+    [Fact]
+    public async Task Schema_NotFound_PassesThe404AndItsBodyThrough()
+    {
+        var notFoundById = new ServiceResponse<SchemaDefinitionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(404);
+        var fields = SchemaNotFound();
+        var define = SchemaNotFound();
+        var info = SchemaNotFound();
+        var delete = SchemaNotFound();
+        var svc = new Mock<ISchemaDefinitionService>();
+        svc.Setup(s => s.GetSchemaByIdAsync("gone")).ReturnsAsync(notFoundById);
+        svc.Setup(s => s.SaveFieldDefinitionAsync(It.IsAny<SaveFieldDefinitionRequest>())).ReturnsAsync(fields);
+        svc.Setup(s => s.UpdateSchemaDefinitionAsync(It.IsAny<UpdateSchemaDefinitionRequest>())).ReturnsAsync(define);
+        svc.Setup(s => s.UpdateSchemaAsync(It.IsAny<UpdateSchemaRequest>())).ReturnsAsync(info);
+        svc.Setup(s => s.DeleteSchemaAsync("gone")).ReturnsAsync(delete);
+        var controller = new SchemaController(svc.Object, new Mock<ISchemaChangeLogService>().Object);
+
+        ShouldPassThrough404(await controller.GetSchemaDefinitionByIdAsync("gone"), notFoundById);
+        ShouldPassThrough404(await controller.SaveSchemaFields(new SaveFieldDefinitionRequest()), fields);
+        ShouldPassThrough404(await controller.UpdateSchemaDefinition(new UpdateSchemaDefinitionRequest()), define);
+        ShouldPassThrough404(await controller.UpdateSchema(new UpdateSchemaRequest()), info);
+        ShouldPassThrough404(await controller.DeleteSchemaDefinitionAsync("gone"), delete);
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("")]
+    public async Task Schema_GetByIdAndDelete_BlankId_StillAnswers400BeforeTheService(string id)
+    {
+        var svc = new Mock<ISchemaDefinitionService>(MockBehavior.Strict);
+        var controller = new SchemaController(svc.Object, new Mock<ISchemaChangeLogService>().Object);
+
+        Status(await controller.GetSchemaDefinitionByIdAsync(id)).Should().Be(400);
+        Status(await controller.DeleteSchemaDefinitionAsync(id)).Should().Be(400);
+    }
+
+    [Fact]
+    public async Task SchemaFieldDefault_NotFound_PassesThe404AndItsBodyThrough()
+    {
+        var response = SchemaNotFound();
+        var svc = new Mock<ISchemaDefinitionService>();
+        svc.Setup(s => s.SetFieldDefaultAsync(It.IsAny<SetFieldDefaultRequest>())).ReturnsAsync(response);
+        var controller = new SchemaFieldDefaultController(svc.Object);
+
+        ShouldPassThrough404(await controller.SetFieldDefault(new SetFieldDefaultRequest()), response);
     }
 
     // ---------------- SchemaIndexController ----------------

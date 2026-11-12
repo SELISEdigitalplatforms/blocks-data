@@ -17,14 +17,22 @@ import SchemaAccessControlDrawer from "./schema-access-control-drawer";
 import { AccessVerbPill } from "./primitives";
 import { readonlyPropertyNames } from "../constants/input-restrictions";
 import { ISchemaDetails } from "../models/data-service";
-import { useDeleteSchema, usePendingSchemaIds, useSchemaIndexes } from "../hooks/use-configuration";
+import {
+  isSchemaNotFound,
+  refreshSchemaLists,
+  removeSchemaDetails,
+  useDeleteSchema,
+  usePendingSchemaIds,
+  useSchemaIndexes,
+} from "../hooks/use-configuration";
 import { useNarrowContainer } from "../hooks/use-narrow-container";
 import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
-import { toast } from "@/hooks/use-toast";
+import { showErrorToast, toast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { CloudOff, CloudUpload, Database, Eye, MoreVertical, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useT } from "@seliseblocks/genesis-os/i18n";
+import { tStatic, useT } from "@seliseblocks/genesis-os/i18n";
 
 const SCHEMA_BASIC_INFO_SCHEMA_ACCESS = "SCHEMA_BASIC_INFO.SCHEMA_ACCESS";
 
@@ -73,9 +81,9 @@ const schemaFieldsSummary = (
   const systemFieldsCount = isEntity
     ? fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
     : 0;
-  const parts = [`${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`];
+  const parts = [tStatic("data.gateway.schema", "SCHEMA_BASIC_INFO.FIELD_COUNT", { count: customFieldsCount })];
   if (isEntity) parts.push(systemLabel(systemFieldsCount));
-  if (isEntity && indexCount !== undefined) parts.push(`${indexCount} ${indexCount === 1 ? "index" : "indexes"}`);
+  if (isEntity && indexCount !== undefined) parts.push(tStatic("data.gateway.schema", "SCHEMA_BASIC_INFO.INDEX_COUNT", { count: indexCount }));
   return parts.join(" · ");
 };
 
@@ -98,6 +106,7 @@ export const SchemaBasicInfo = ({
   // itself crosses the pixel threshold.
   const foldPreviewIntoMenu = isNarrow || isAccessPanelOpen;
 
+  const queryClient = useQueryClient();
   const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } = useDeleteSchema();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const pendingSchemaIds = usePendingSchemaIds(projectKey);
@@ -109,13 +118,23 @@ export const SchemaBasicInfo = ({
       if (res?.isSuccess) {
         toast({ variant: "success", title: t("common:SUCCESS"), description: t("SCHEMA_BASIC_INFO.DELETED_SUCCESSFULLY") });
         setIsDeleteDialogOpen(false);
-        if (onDeleteSuccess) {
-          onDeleteSuccess();
-        }
+        onDeleteSuccess?.();
+        // Only now that the page has let go of the id: removing its details while the page still
+        // watched it made the page fetch the deleted schema again.
+        removeSchemaDetails(queryClient, props.id, projectKey);
       } else {
         toast({ variant: "destructive", title: t("common:ERROR"), description: JSON.stringify(res?.errors) });
       }
     } catch (error) {
+      if (isSchemaNotFound(error)) {
+        // Already gone (e.g. deleted in another tab): say so and leave it, as a successful delete does.
+        setIsDeleteDialogOpen(false);
+        showErrorToast({ errors: t("SCHEMA_DETAILS_PAGE.SCHEMA_NO_LONGER_EXISTS") });
+        onDeleteSuccess?.();
+        removeSchemaDetails(queryClient, props.id, projectKey);
+        refreshSchemaLists(queryClient, projectKey);
+        return;
+      }
       toast({ variant: "destructive", title: t("common:ERROR"), description: JSON.stringify(error) });
     }
   };

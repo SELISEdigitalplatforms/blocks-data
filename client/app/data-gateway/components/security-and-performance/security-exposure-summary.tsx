@@ -39,7 +39,7 @@ export function SecurityExposureSummary({
           <h3 className="text-sm font-semibold text-foreground">{t("SECURITY_EXPOSURE_SUMMARY.ACCESS_SURFACE")}</h3>
           <span className="text-xs text-muted-foreground">
             {breakdown.totalGrants} {t("SECURITY_EXPOSURE_SUMMARY.GRANTS_ACROSS")} {breakdown.schemaCount} {t("SECURITY_EXPOSURE_SUMMARY.ENTITY")}{" "}
-            {breakdown.schemaCount === 1 ? "schema" : "schemas"}
+            {t("SECURITY_EXPOSURE_SUMMARY.SCHEMA", { count: breakdown.schemaCount })}
           </span>
         </div>
 

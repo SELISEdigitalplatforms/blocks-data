@@ -182,19 +182,19 @@ public class QueryEngineTests : IDisposable
 
     /// <summary>C7, C10: every accepted input reads between 1 and the cap rows, never 0, and int.MaxValue does not overflow.</summary>
     [Theory]
-    [InlineData(1, null)]
-    [InlineData(1, 0)]
-    [InlineData(1, 1)]
-    [InlineData(1, 1000)]
-    [InlineData(1, 1001)]
-    [InlineData(1, int.MaxValue)]
-    [InlineData(2, null)]
-    [InlineData(2, 0)]
-    [InlineData(2, 1)]
-    [InlineData(2, 1000)]
-    [InlineData(2, 1001)]
-    [InlineData(2, int.MaxValue)]
-    public async Task Paging_LimitIsAlwaysBetweenOneAndTheCap(int pageNo, int? pageSize)
+    [InlineData(1, null, 10)]
+    [InlineData(1, 0, 1000)]
+    [InlineData(1, 1, 1)]
+    [InlineData(1, 1000, 1000)]
+    [InlineData(1, 1001, 1000)]
+    [InlineData(1, int.MaxValue, 1000)]
+    [InlineData(2, null, 10)]
+    [InlineData(2, 0, 1000)]
+    [InlineData(2, 1, 1)]
+    [InlineData(2, 1000, 1000)]
+    [InlineData(2, 1001, 1000)]
+    [InlineData(2, int.MaxValue, 1000)]
+    public async Task Paging_LimitIsAlwaysBetweenOneAndTheCap(int pageNo, int? pageSize, int expectedLimit)
     {
         var schema = PagingSetup();
         var limits = new List<int>();
@@ -208,7 +208,7 @@ public class QueryEngineTests : IDisposable
 
         var result = await CappedEngine(null).QueryAsync(new EntityModel(schema, null), Paging(pageNo, pageSize));
 
-        limits.Should().ContainSingle().Which.Should().BeInRange(1, MongoGatewayDataEngine.DefaultMaxPageSize);
+        limits.Should().ContainSingle().Which.Should().BeInRange(1, MongoGatewayDataEngine.DefaultMaxPageSize).And.Be(expectedLimit);
         skips.Single().Should().Be((pageNo - 1) * limits.Single());
         result.PageSize.Should().Be(limits.Single());
     }
@@ -285,6 +285,19 @@ public class QueryEngineTests : IDisposable
         VerifyNoRepositoryCall();
     }
 
+    /// <summary>Order-conversion and filter errors keep priority over invalid paging (spec §3 constraints, §6.2).</summary>
+    [Fact]
+    public async Task OrderError_WithInvalidPaging_StillTheOrderError()
+    {
+        var schema = PagingSetup();
+        var command = new QueryCommand("getPersons", null, [new OrderItem("Nope", global::DataGateway.DomainService.Models.SortDirection.ASC)], 0, -1, ["Name"]);
+
+        var act = () => CappedEngine(null).QueryAsync(new EntityModel(schema, null), command);
+
+        (await act.Should().ThrowAsync<ArgumentException>()).Which.Message.Should().Contain("'Nope' is not defined");
+        VerifyNoRepositoryCall();
+    }
+
     /// <summary>H5, C11: one clamp Warning per list read, carrying only tenant, schema, requested and effective size.</summary>
     [Fact]
     public async Task AboveTheCap_LogsOneClampWarning_WithOnlyTheFourFields()
@@ -299,7 +312,7 @@ public class QueryEngineTests : IDisposable
         warning.Category.Should().Be("MongoGatewayDataEngine");
         warning.Message.Should().Be("Data Gateway page size clamped for tenant tenant-1, schema Person: requested 5000, effective 1000");
         warning.Fields.Keys.Should().BeEquivalentTo("TenantId", "SchemaName", "RequestedPageSize", "EffectivePageSize");
-        warning.AllText().Should().NotContain("Alice").And.NotContain("secret-filter-value").And.NotContain("user-1");
+        warning.AllText().Should().NotContain("Alice").And.NotContain("secret-filter-value").And.NotContain("user-1").And.NotContain("user@x.com");
     }
 
     /// <summary>C12: a pageSize of 0, within the cap, at the cap or absent logs no clamp Warning.</summary>

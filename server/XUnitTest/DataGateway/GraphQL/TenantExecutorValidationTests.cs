@@ -160,7 +160,7 @@ public class TenantExecutorValidationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddRouting();
-        services.AddSingleton(schema ?? new OneFieldSchema());
+        services.AddSingleton<ITenantSchemaConfigurator>(schema ?? new OneFieldSchema());
         var builder = services.AddGraphQLServer();
         if (gatewayValidation)
         {

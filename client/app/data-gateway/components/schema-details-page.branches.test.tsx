@@ -287,6 +287,43 @@ describe("SchemaDetailsPage - interactions", () => {
     errSpy.mockRestore();
   });
 
+  it("shows the server's message when creation is rejected with a 400", async () => {
+    // H7: the HTTP client throws on a 400, with the parsed body as `errors`.
+    createSchema.mockRejectedValue(
+      Object.assign(new Error("HTTP 400"), {
+        status: 400,
+        errors: { isSuccess: false, message: "Collection name 'sb_E2eX' is already used by schema 'E2eY'", errors: null },
+      }),
+    );
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByTestId("add-schema"));
+    await user.click(screen.getByTestId("submit-entity"));
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: ["Collection name 'sb_E2eX' is already used by schema 'E2eY'"],
+      }),
+    );
+    // Rejected: the modal stays open.
+    expect(screen.getByTestId("cancel")).toBeInTheDocument();
+    errSpy.mockRestore();
+  });
+
+  it("shows the fallback text for a 400 without a message", async () => {
+    // C14
+    createSchema.mockRejectedValue(Object.assign(new Error("HTTP 400"), { status: 400, errors: { message: "  " } }));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByTestId("add-schema"));
+    await user.click(screen.getByTestId("submit-entity"));
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: ["An unexpected error occurred"] }),
+    );
+    errSpy.mockRestore();
+  });
+
   it("closes the modal via cancel", async () => {
     const user = userEvent.setup();
     renderPage();

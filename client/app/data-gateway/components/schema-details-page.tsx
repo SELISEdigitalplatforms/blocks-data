@@ -257,6 +257,15 @@ function InspectorColumn({
   );
 }
 
+/**
+ * The server's message from a create that failed with a non-2xx response. The HTTP client throws an
+ * HttpError whose `errors` holds the parsed response body (see schema-index.utils.ts).
+ */
+const serverErrorMessage = (error: unknown): string | undefined => {
+  const message = (error as { errors?: { message?: unknown } } | null | undefined)?.errors?.message;
+  return typeof message === "string" && message.trim() ? message : undefined;
+};
+
 /** Which rule of which field the docked validation inspector shows, so its row and button show as open. */
 const inspectedRuleOf = (target: ValidationInspectorTarget | null) => {
   if (!target) return null;
@@ -534,7 +543,8 @@ export const SchemaDetailsPage = () => {
       }
     } catch (error) {
       console.error("Error in onSchemaCreate:", error);
-      showErrorToast({ errors: [t("SCHEMA_DETAILS_PAGE.AN_UNEXPECTED_ERROR_OCCURRED")] });
+      // A 400 carries the server's reason, e.g. a collection name already used by another schema.
+      showErrorToast({ errors: [serverErrorMessage(error) ?? t("SCHEMA_DETAILS_PAGE.AN_UNEXPECTED_ERROR_OCCURRED")] });
       return false;
     }
   };

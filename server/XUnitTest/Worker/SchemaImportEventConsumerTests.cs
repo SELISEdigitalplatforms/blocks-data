@@ -3,6 +3,7 @@ using Blocks.Genesis.Notifications;
 using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Services;
+using DataGateway.DomainService.Validators;
 using DomainService.Storage;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -152,6 +153,62 @@ public class SchemaImportEventConsumerTests
 
         var payload = Payload(h.Published.Single());
         payload.GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
+        // C8: no exception text reaches the user.
+        payload.GetProperty("Errors").GetArrayLength().Should().Be(0);
+        payload.GetRawText().Should().NotContain("bad schema");
+        payload.GetProperty("description").GetString().Should().Be("Schema import failed");
     }
 
+    [Fact]
+    public async Task Consume_ValidationFailure_SendsTheValidationMessagesInOrder_AndTheCorrelationId()
+    {
+        // E5 / C6: the validator's messages, in its order, as Errors.
+        var h = new Harness();
+        h.ImportService.Setup(s => s.ProcessImportAsync(It.IsAny<SchemaImportEvent>(), It.IsAny<byte[]>()))
+                       .ThrowsAsync(new SchemaImportValidationException([
+                           "Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'.",
+                           "Document[2]: CollectionName 'SB_tags' is used by more than one document in this import file.",
+                       ]));
+
+        await h.Consumer.Consume(Event());
+
+        var payload = Payload(h.Published.Single());
+        payload.GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
+        payload.GetProperty("FileId").GetString().Should().Be("file-1");
+        payload.GetProperty("CorrelationId").GetString().Should().Be("corr-1");
+        payload.GetProperty("ImportedSchemaCount").GetInt32().Should().Be(0);
+        payload.GetProperty("Errors").EnumerateArray().Select(e => e.GetString()).Should().Equal(
+            "Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'.",
+            "Document[2]: CollectionName 'SB_tags' is used by more than one document in this import file.");
+        payload.GetProperty("title").GetString().Should().Be("Schema Import Completed");
+        payload.GetProperty("description").GetString().Should().Be("Schema import failed");
+    }
+
+    [Fact]
+    public async Task Consume_Success_SendsEmptyErrorsAndTheCorrelationId()
+    {
+        // H6
+        var h = new Harness();
+
+        await h.Consumer.Consume(Event());
+
+        var payload = Payload(h.Published.Single());
+        payload.GetProperty("IsSuccess").GetBoolean().Should().BeTrue();
+        payload.GetProperty("Errors").GetArrayLength().Should().Be(0);
+        payload.GetProperty("CorrelationId").GetString().Should().Be("corr-1");
+        payload.GetProperty("description").GetString().Should().Be("Schema import completed successfully.");
+    }
+
+    [Fact]
+    public async Task Consume_DownloadFailure_SendsEmptyErrors()
+    {
+        // C8: download failure.
+        var h = new Harness(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        await h.Consumer.Consume(Event());
+
+        var payload = Payload(h.Published.Single());
+        payload.GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
+        payload.GetProperty("Errors").GetArrayLength().Should().Be(0);
+    }
 }

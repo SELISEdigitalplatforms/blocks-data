@@ -6,8 +6,9 @@ import { createWrapper } from "@/test-utils/test-providers/query-client";
 const useSchemaList = vi.fn();
 
 // Capture the notification handler the sidebar registers so tests can invoke it.
+// `all` keeps every mounted listener, as the browser would deliver one event to each.
 const { notifyRef } = vi.hoisted(() => ({
-  notifyRef: { current: null as null | ((data: unknown) => void) },
+  notifyRef: { current: null as null | ((data: unknown) => void), all: [] as ((data: unknown) => void)[] },
 }));
 
 let pendingSchemaIds: ReadonlySet<string> = new Set();
@@ -15,6 +16,9 @@ let pendingSchemaIds: ReadonlySet<string> = new Set();
 vi.mock("../hooks/use-configuration", () => ({
   useSchemaList: (...a: unknown[]) => useSchemaList(...a),
   usePendingSchemaIds: () => pendingSchemaIds,
+  // For the security page, mounted next to the sidebar in the import-notification tests.
+  useSecurityAndPerformanceSchemaList: () => ({ data: undefined, isLoading: true }),
+  useCreateSchema: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -25,6 +29,7 @@ vi.mock("@/hooks/use-debounce", () => ({ useDebounce: (v: unknown) => v }));
 vi.mock("@/hooks/use-notification-listener", () => ({
   useNotificationListener: (_name: string, cb: (data: unknown) => void) => {
     notifyRef.current = cb;
+    if (!notifyRef.all.includes(cb)) notifyRef.all.push(cb);
   },
 }));
 vi.mock("@/hooks/use-toast", () => ({
@@ -33,6 +38,9 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 import SchemasSidebar from "./schema-side-bar";
+import SecurityAndPerformance from "./security-and-performance/security-and-performance";
+import { showErrorToast } from "@/hooks/use-toast";
+import { resetHandledImportNotifications } from "../utils/schema-import-notification";
 
 function renderSidebar(props: Partial<Parameters<typeof SchemasSidebar>[0]> = {}) {
   const Wrapper = createWrapper();
@@ -57,6 +65,9 @@ describe("SchemasSidebar", () => {
   beforeEach(() => {
     pendingSchemaIds = new Set();
     useSchemaList.mockReset();
+    notifyRef.all = [];
+    vi.mocked(showErrorToast).mockReset();
+    resetHandledImportNotifications();
   });
 
   it("renders the skeleton before data resolves", () => {
@@ -371,5 +382,56 @@ describe("SchemasSidebar", () => {
     renderSidebar();
     expect(screen.queryByText("Not live")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Unpublished changes")).not.toBeInTheDocument();
+  });
+  describe("failed import notifications", () => {
+    const failed = (payload: Record<string, unknown>) => ({
+      message: { denormalizedPayload: JSON.stringify({ IsSuccess: false, FileId: "f1", ...payload }) },
+    });
+    const deliver = (data: unknown) =>
+      act(() => {
+        // Every mounted listener receives the event, as with a window CustomEvent.
+        notifyRef.all.forEach((listener) => listener(data));
+      });
+
+    function renderBothListeners() {
+      useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
+      const Wrapper = createWrapper();
+      render(
+        <Wrapper>
+          <SchemasSidebar onAddSchema={vi.fn()} filterType="all" page={1} pageSize={10} onListQueryChange={vi.fn()} />
+          <SecurityAndPerformance onSchemaRowClick={vi.fn()} onNavigateToSchemas={vi.fn()} onSchemaCreated={vi.fn()} />
+        </Wrapper>,
+      );
+      expect(notifyRef.all).toHaveLength(2);
+    }
+
+    it("shows one toast listing the validation messages when both listeners are mounted", () => {
+      // H8 / C9
+      renderBothListeners();
+      deliver(failed({ CorrelationId: "c-1", Errors: ["Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'."] }));
+
+      expect(showErrorToast).toHaveBeenCalledTimes(1);
+      expect(showErrorToast).toHaveBeenCalledWith({
+        title: "Schema import failed:",
+        errors: ["Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'."],
+      });
+    });
+
+    it("does not show the same notification twice, and shows the generic text without messages", () => {
+      // C9 / C8
+      renderBothListeners();
+      deliver(failed({ CorrelationId: "c-2", Errors: ["x"] }));
+      deliver(failed({ CorrelationId: "c-2", Errors: ["x"] }));
+      deliver(failed({ CorrelationId: "c-3", Errors: [] }));
+
+      expect(showErrorToast).toHaveBeenCalledTimes(2);
+      expect(showErrorToast).toHaveBeenLastCalledWith({ errors: "Error processing import schema" });
+    });
+
+    it("shows no error toast for a successful import", () => {
+      renderBothListeners();
+      deliver({ message: { denormalizedPayload: JSON.stringify({ IsSuccess: true, Errors: [], CorrelationId: "c-4" }) } });
+      expect(showErrorToast).not.toHaveBeenCalled();
+    });
   });
 });

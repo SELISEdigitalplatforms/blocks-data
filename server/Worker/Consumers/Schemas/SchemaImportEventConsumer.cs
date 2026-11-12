@@ -2,6 +2,7 @@ using Blocks.Genesis;
 using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Services;
+using DataGateway.DomainService.Validators;
 using DomainService.Storage;
 using Storage.DomainService.Services;
 using System.Text;
@@ -37,13 +38,19 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
 
         var isSuccess = false;
         var importedCount = 0;
-        var errorMessage = string.Empty;
+        // Only validation messages reach the user; any other failure sends none, never exception text.
+        IReadOnlyList<string> errors = [];
 
         try
         {
             var (jsonBytes, _) = await DownloadFromStorageAsync(@event.FileId, @event.ProjectKey);
             importedCount = await _schemaImportService.ProcessImportAsync(@event, jsonBytes);
             isSuccess = true;
+        }
+        catch (SchemaImportValidationException ex)
+        {
+            _logger.LogWarning(ex, "Schema import rejected by validation for fileId={FileId}, projectKey={ProjectKey}: {ErrorCount} errors", @event.FileId, @event.ProjectKey, ex.Errors.Count);
+            errors = ex.Errors;
         }
         catch (Exception ex)
         {
@@ -52,7 +59,7 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
         }
         finally
         {
-            await SendNotificationAsync(isSuccess, @event, importedCount);
+            await SendNotificationAsync(isSuccess, @event, importedCount, errors);
         }
 
         _logger.LogInformation("Schema import event consumed for fileId: {FileId}, success: {IsSuccess}", @event.FileId, isSuccess);
@@ -78,7 +85,7 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
         return (jsonBytes, fileResponse.Name ?? fileId);
     }
 
-    private Task SendNotificationAsync(bool isSuccess, SchemaImportEvent importEvent, int importedCount) =>
+    private Task SendNotificationAsync(bool isSuccess, SchemaImportEvent importEvent, int importedCount, IReadOnlyList<string> errors) =>
         _notificationSender.SendAsync(new BuiltInNotification(
             importEvent.CallerTenantId ?? string.Empty,
             "schema-import",
@@ -88,6 +95,8 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
                 IsSuccess = isSuccess,
                 importEvent.FileId,
                 ImportedSchemaCount = importedCount,
+                Errors = errors.ToArray(),
+                CorrelationId = importEvent.MessageCoRelationId,
                 title = "Schema Import Completed",
                 description = isSuccess
                     ? $"Schema import completed successfully."

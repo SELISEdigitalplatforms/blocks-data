@@ -17,3 +17,16 @@ export interface ISchemaExportNotificationData {
         };
   };
 }
+
+/**
+ * Denormalized payload of the `schema-import` notification sent when the Worker finishes an import.
+ * `Errors` holds the import validator's messages on a validation failure and is empty otherwise;
+ * `CorrelationId` is the import request's correlation id. Older servers send neither.
+ */
+export interface ISchemaImportNotificationPayload {
+  IsSuccess: boolean;
+  FileId?: string;
+  ImportedSchemaCount?: number;
+  Errors?: string[];
+  CorrelationId?: string;
+}

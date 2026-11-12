@@ -55,6 +55,7 @@ vi.mock("./pagination", () => ({
 }));
 
 import SecurityAndPerformance from "./security-and-performance";
+import { resetHandledImportNotifications } from "../../utils/schema-import-notification";
 
 function renderPanel(props = {}) {
   const Wrapper = createWrapper();
@@ -103,6 +104,7 @@ describe("SecurityAndPerformance", () => {
     showSuccessToast.mockReset();
     notifHandler = undefined;
     capturedOnSubmit = undefined;
+    resetHandledImportNotifications();
   });
 
   it("shows the loading skeleton while fetching (no content yet)", () => {
@@ -199,6 +201,61 @@ describe("SecurityAndPerformance", () => {
     const ok = await capturedOnSubmit!({ schemaName: "X", schemaType: "DTO", entityName: "" });
     expect(ok).toBe(false);
     expect(showErrorToast).toHaveBeenCalledWith({ errors: { schemaName: "taken" } });
+  });
+
+  // The HTTP client throws on any non-2xx response, with the parsed body as `errors`.
+  const httpError = (body: Record<string, unknown>) => Object.assign(new Error("HTTP 400"), { status: 400, errors: body });
+
+  it("shows the server's message when creation is rejected with a 400", async () => {
+    // H7
+    createSchema.mockRejectedValue(
+      httpError({ isSuccess: false, message: "Collection name 'sb_Orders' is already used by schema 'Order'", httpStatusCode: 400, data: null, errors: null }),
+    );
+    useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: /Add Schema/ }));
+
+    const ok = await capturedOnSubmit!({ schemaName: "Purchase", schemaType: "Entity", entityName: "sb_Orders" });
+    expect(ok).toBe(false);
+    expect(showErrorToast).toHaveBeenCalledWith({ errors: ["Collection name 'sb_Orders' is already used by schema 'Order'"] });
+    expect(screen.getByTestId("add-schema-modal")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["a 400 without a message", httpError({ isSuccess: false, message: "", errors: null })],
+    ["a network error", new TypeError("Failed to fetch")],
+  ])("shows this page's fallback text for %s, without an unhandled rejection", async (_case, error) => {
+    // C14
+    createSchema.mockRejectedValue(error);
+    useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: /Add Schema/ }));
+
+    await expect(capturedOnSubmit!({ schemaName: "X", schemaType: "Entity", entityName: "sb_X" })).resolves.toBe(false);
+    expect(showErrorToast).toHaveBeenCalledWith({ errors: ["An unexpected error occurred. Please try again."] });
+  });
+
+  it("shows one toast with the reasons for a failed import notification", () => {
+    // H8
+    useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
+    renderPanel();
+    notifHandler?.({
+      message: {
+        denormalizedPayload: {
+          IsSuccess: false,
+          FileId: "x",
+          CorrelationId: "shot-1",
+          Errors: ["Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'."],
+        },
+      },
+    });
+    expect(showErrorToast).toHaveBeenCalledTimes(1);
+    expect(showErrorToast).toHaveBeenCalledWith({
+      title: "Schema import failed:",
+      errors: ["Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'."],
+    });
   });
 
   it("changes page and page size through the pagination controls", async () => {

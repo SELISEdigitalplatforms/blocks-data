@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Validators;
@@ -63,6 +64,10 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
+        var collectionOwner = await FindCollectionNameOwnerAsync(request.CollectionName, request.SchemaType, excludeItemId: null);
+        if (collectionOwner is not null)
+            return CollectionNameInUseResponse(request.CollectionName, collectionOwner);
+
         var schema = new SchemaDefinition
         {
             CollectionName = request.CollectionName, SchemaName = request.SchemaName, SchemaType = request.SchemaType,
@@ -99,6 +104,14 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
+
+        // Resending the stored name unchanged (ordinal) skips the check, so schemas that already share a collection stay editable.
+        if (!string.Equals(request.CollectionName, schema.CollectionName, StringComparison.Ordinal))
+        {
+            var collectionOwner = await FindCollectionNameOwnerAsync(request.CollectionName, request.SchemaType, schema.ItemId);
+            if (collectionOwner is not null)
+                return CollectionNameInUseResponse(request.CollectionName, collectionOwner);
+        }
 
         var previousSchemaName = schema.SchemaName;
         schema.CollectionName = request.CollectionName;
@@ -399,6 +412,10 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
+        var collectionOwner = await FindCollectionNameOwnerAsync(request.CollectionName, request.SchemaType, excludeItemId: null);
+        if (collectionOwner is not null)
+            return CollectionNameInUseResponse(request.CollectionName, collectionOwner);
+
         var schema = new SchemaDefinition
         {
             CollectionName = request.CollectionName,
@@ -438,6 +455,14 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
+
+        // Resending the stored name unchanged (ordinal) skips the check, so schemas that already share a collection stay editable.
+        if (!string.Equals(request.CollectionName, schema.CollectionName, StringComparison.Ordinal))
+        {
+            var collectionOwner = await FindCollectionNameOwnerAsync(request.CollectionName, request.SchemaType, schema.ItemId);
+            if (collectionOwner is not null)
+                return CollectionNameInUseResponse(request.CollectionName, collectionOwner);
+        }
 
         var previousGeoJsonFieldNames = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
         var previousSchemaName = schema.SchemaName;
@@ -905,6 +930,41 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         return null;
     }
+
+    /// <summary>
+    /// The SchemaName of another tenant Entity schema (not a system entity, not soft-deleted; a missing
+    /// IsDeleted counts as not deleted) whose CollectionName equals <paramref name="collectionName"/>
+    /// case-insensitively after trimming, or null. With several, the first in ordinal order. One read;
+    /// <paramref name="excludeItemId"/> is excluded inside the query.
+    /// </summary>
+    private async Task<string?> FindCollectionNameOwnerAsync(string? collectionName, SchemaType schemaType, string? excludeItemId)
+    {
+        if (schemaType != SchemaType.Entity || string.IsNullOrWhiteSpace(collectionName))
+            return null;
+
+        var requested = collectionName.Trim();
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.SchemaType), (int)SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) },
+            { nameof(SchemaDefinition.IsDeleted), new BsonDocument("$ne", true) },
+            // Stored names may carry surrounding whitespace, so the anchored pattern allows it.
+            { nameof(SchemaDefinition.CollectionName), new BsonRegularExpression($"^\\s*{System.Text.RegularExpressions.Regex.Escape(requested)}\\s*$", "i") }
+        };
+        if (excludeItemId is not null)
+            filter.Add(GraphQlConstant.DbEntityIdFieldName, new BsonDocument("$ne", excludeItemId));
+
+        var matches = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 0);
+        return (matches ?? [])
+            .Where(s => s.ItemId != excludeItemId && !s.IsSystemEntity && !s.IsDeleted && s.SchemaType == SchemaType.Entity
+                        && string.Equals(s.CollectionName?.Trim(), requested, StringComparison.OrdinalIgnoreCase))
+            .Select(s => s.SchemaName)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    private static ServiceResponse<ActionResponse> CollectionNameInUseResponse(string? collectionName, string ownerSchemaName) =>
+        new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{collectionName}' is already used by schema '{ownerSchemaName}'").SetHttpStatusCode(400);
 
     private static ServiceResponse<ActionResponse> SchemaNotFoundResponse() =>
         new ServiceResponse<ActionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(404);

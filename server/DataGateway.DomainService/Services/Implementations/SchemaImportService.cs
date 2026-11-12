@@ -90,9 +90,9 @@ public class SchemaImportService : ISchemaImportService
         RestoreMissingReferenceFieldTypes(documents);
 
         // 2. Validate documents
-        var validationErrors = await _schemaImportValidator.ValidateAsync(documents);
+        var validationErrors = await _schemaImportValidator.ValidateAsync(documents, importEvent.ProjectKey);
         if (validationErrors.Count > 0)
-            throw new InvalidOperationException($"Import validation failed:\n{string.Join("\n", validationErrors)}");
+            throw new SchemaImportValidationException(validationErrors);
 
         // 3. Determine what's present in the file
         bool hasAccessPolicies = documents.Any(d =>
@@ -174,7 +174,15 @@ public class SchemaImportService : ISchemaImportService
             Builders<SchemaDefinition>.Filter.And(
                 Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, schemaNames),
                 Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)), databaseName: tenantId);
-        var existingBySchemaName = existingSchemas.ToDictionary(s => s.SchemaName, StringComparer.OrdinalIgnoreCase);
+        // Grouped rather than ToDictionary: a project can already hold two stored schemas with the same name
+        // (soft-deleted ones included). Such a file is rejected before anything is written.
+        var groups = existingSchemas.GroupBy(s => s.SchemaName, StringComparer.OrdinalIgnoreCase).ToList();
+        var duplicatedNames = groups.Where(g => g.Skip(1).Any())
+            .Select(g => $"SchemaName '{g.Key}' matches more than one existing schema; resolve the duplicate before importing.")
+            .ToList();
+        if (duplicatedNames.Count > 0)
+            throw new SchemaImportValidationException(duplicatedNames);
+        var existingBySchemaName = groups.ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var toUpsert = new List<SchemaDefinition>();
         var result = new List<(SchemaExportDocument, SchemaDefinition, SchemaChangeType)>();

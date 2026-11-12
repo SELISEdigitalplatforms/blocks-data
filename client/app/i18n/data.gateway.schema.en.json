@@ -535,6 +535,7 @@
   "SCHEMA_EXPOSURE.ANYONE_CAN_READ_THIS_SCHEMA": "Anyone can read this schema",
   "SCHEMA_EXPOSURE.ANYONE_CAN_VALUE_THIS_SCHEMA": "Anyone can {{value}} this schema",
   "SCHEMA_EXPOSURE.ANY_SIGNED_IN_USER_CAN_VALUE": "Any signed-in user can {{value}} this schema",
+  "SCHEMA_IMPORT.FAILED_WITH_REASONS": "Schema import failed:",
   "SCHEMA_INDEXES_TAB.ADD_INDEX": "Add index",
   "SCHEMA_INDEXES_TAB.ARE_YOU_SURE_YOU_WANT_TO": "Are you sure you want to delete this index? This action cannot be undone.",
   "SCHEMA_INDEXES_TAB.COMPOUND": "Compound",

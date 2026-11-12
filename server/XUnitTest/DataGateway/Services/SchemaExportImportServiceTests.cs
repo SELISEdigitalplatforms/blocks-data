@@ -217,7 +217,7 @@ public class SchemaImportServiceTests
     public async Task ProcessImport_ValidationFails_Throws()
     {
         var docs = new List<SchemaExportDocument> { new() { SchemaName = "", Fields = new() } };
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<SchemaImportValidationException>(() =>
             _service.ProcessImportAsync(new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs)));
     }
 
@@ -296,7 +296,7 @@ public class SchemaImportServiceTests
             }
         };
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<SchemaImportValidationException>(() =>
             _service.ProcessImportAsync(
                 new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs)));
 
@@ -398,4 +398,130 @@ public class SchemaImportServiceTests
         count.Should().Be(1);
         _repo.Verify(r => r.UpsertManyAsync(It.Is<List<SchemaDefinition>>(l => l[0].ItemId == "existing"), "p"), Times.Once);
     }
+
+    // ---- #417: collection-name conflicts on import (§6.1, §6.2) ----
+
+    private static SchemaExportDocument EntityDoc(string name, string collection) => new()
+    {
+        SchemaName = name, CollectionName = collection, SchemaType = SchemaType.Entity,
+        Fields = new() { new ExportFieldDefinition { Name = "Title", Type = "String" } }
+    };
+
+    private static string RenderFilter(FilterDefinition<SchemaDefinition> filter) =>
+        filter.Render(new RenderArgs<SchemaDefinition>(
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry.GetSerializer<SchemaDefinition>(),
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry)).ToString();
+
+    /// <summary>
+    /// Stored tenant schemas, answered per read the way MongoDB would: the system-entity read gets none, the
+    /// conflict read (the only one with $or) gets every stored schema, the upsert's exact-case $in read gets
+    /// the ordinal name matches. Records each read's databaseName.
+    /// </summary>
+    private List<string> GivenStoredSchemas(params SchemaDefinition[] stored)
+    {
+        var databases = new List<string>();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition, SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), null, It.IsAny<string>()))
+            .ReturnsAsync((FilterDefinition<SchemaDefinition> filter, SortDefinition<SchemaDefinition>? _, string database) =>
+            {
+                databases.Add(database);
+                var rendered = RenderFilter(filter);
+                if (rendered.Contains("\"IsSystemEntity\" : true", StringComparison.Ordinal))
+                    return [];
+                if (rendered.Contains("$or", StringComparison.Ordinal))
+                    return stored.ToList();
+                return stored.Where(s => rendered.Contains($"\"{s.SchemaName}\"", StringComparison.Ordinal)).ToList();
+            });
+        return databases;
+    }
+
+    private Task<int> ImportAsync(params SchemaExportDocument[] docs) =>
+        _service.ProcessImportAsync(new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs.ToList()));
+
+    [Fact]
+    public async Task ProcessImport_NewSchemaUsingAnExistingCollection_ImportsNothing()
+    {
+        // E5 / C6
+        GivenStoredSchemas(new SchemaDefinition { ItemId = "o1", SchemaName = "Order", CollectionName = "sb_Orders", SchemaType = SchemaType.Entity });
+
+        var exception = await Assert.ThrowsAsync<SchemaImportValidationException>(() => ImportAsync(EntityDoc("Invoice", "sb_Orders")));
+
+        exception.Errors.Should().Equal("Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'.");
+        exception.Message.Should().StartWith("Import validation failed:\n");
+        _repo.Verify(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessImport_CaseVariantOfAnExistingName_CountsAsAnInsert_AndIsChecked()
+    {
+        // §6.1: "order" while "Order" exists inserts a new schema (the upsert matches names ordinally).
+        GivenStoredSchemas(new SchemaDefinition { ItemId = "o1", SchemaName = "Order", CollectionName = "sb_Orders", SchemaType = SchemaType.Entity });
+
+        var exception = await Assert.ThrowsAsync<SchemaImportValidationException>(() => ImportAsync(EntityDoc("order", "SB_orders")));
+
+        exception.Errors.Should().Equal("Document[0]: CollectionName 'SB_orders' is already used by schema 'Order'.");
+    }
+
+    [Fact]
+    public async Task ProcessImport_TwoNewDocumentsWithTheSameCollection_RejectsTheSecond()
+    {
+        // E7: indexes 1 and 2 insert with sb_Tags and SB_tags; index 0 updates an existing schema reusing sb_Tags and does not count.
+        GivenStoredSchemas(new SchemaDefinition { ItemId = "x1", SchemaName = "Existing", CollectionName = "sb_Existing", SchemaType = SchemaType.Entity });
+
+        var exception = await Assert.ThrowsAsync<SchemaImportValidationException>(() =>
+            ImportAsync(EntityDoc("Existing", "sb_Tags"), EntityDoc("Tag", "sb_Tags"), EntityDoc("Label", "SB_tags")));
+
+        exception.Errors.Should().Equal("Document[2]: CollectionName 'SB_tags' is used by more than one document in this import file.");
+        _repo.Verify(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessImport_UpdateDocumentReusingACollection_AndOwnersOutsideTheRule_Import()
+    {
+        // H6 / C4: an update keeps its stored collection; a soft-deleted or system owner is not a conflict
+        // (a system entity's collection stays reserved by the existing rule, covered by the validator tests).
+        GivenStoredSchemas(
+            new SchemaDefinition { ItemId = "o1", SchemaName = "Order", CollectionName = "sb_Orders", SchemaType = SchemaType.Entity },
+            new SchemaDefinition { ItemId = "d1", SchemaName = "Gone", CollectionName = "sb_Gone", SchemaType = SchemaType.Entity, IsDeleted = true },
+            new SchemaDefinition { ItemId = "s1", SchemaName = "Audit", CollectionName = "sb_Audit", SchemaType = SchemaType.Entity, IsSystemEntity = true });
+
+        var count = await ImportAsync(EntityDoc("Order", "sb_Other"), EntityDoc("Invoice", "sb_Gone"), EntityDoc("Tag", "sb_Tags"));
+
+        count.Should().Be(3);
+        _repo.Verify(r => r.UpsertManyAsync(It.Is<List<SchemaDefinition>>(l => l.Single(s => s.SchemaName == "Order").CollectionName == "sb_Orders"), "p"), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessImport_TwoStoredSchemasWithTheSameName_RejectsBeforeWriting()
+    {
+        // C7: today's ToDictionary threw ArgumentException here.
+        GivenStoredSchemas(
+            new SchemaDefinition { ItemId = "a", SchemaName = "Person", CollectionName = "sb_Persons", SchemaType = SchemaType.Entity },
+            new SchemaDefinition { ItemId = "b", SchemaName = "Person", CollectionName = "sb_People", SchemaType = SchemaType.Entity, IsDeleted = true });
+
+        var exception = await Assert.ThrowsAsync<SchemaImportValidationException>(() => ImportAsync(EntityDoc("Person", "sb_Persons")));
+
+        exception.Errors.Should().Equal("SchemaName 'Person' matches more than one existing schema; resolve the duplicate before importing.");
+        _repo.Verify(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), It.IsAny<string>()), Times.Never);
+        _repo.Verify(r => r.DeleteManyAsync(It.IsAny<FilterDefinition<DataAccessPolicy>>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessImport_EveryValidatorRead_UsesTheEventsTenant_WithOneAdditionalRead()
+    {
+        // C13 / C12: system names, custom types, reference targets, the conflict read and the upsert read all read tenant "p".
+        var databases = GivenStoredSchemas();
+        var doc = EntityDoc("Invoice", "sb_Invoices");
+        doc.Fields.Add(new ExportFieldDefinition { Name = "Customer", Type = "Address" });
+        doc.Fields.Add(new ExportFieldDefinition
+        {
+            Name = "OrderId", Type = "String",
+            ValidationRules = [new ExportValidationRule { Type = ValidationType.Reference, Value = "Order.ItemId" }]
+        });
+
+        await Assert.ThrowsAsync<SchemaImportValidationException>(() => ImportAsync(doc));
+
+        databases.Should().HaveCount(4, "system names, custom types, reference targets and the one new conflict read")
+            .And.OnlyContain(d => d == "p");
+    }
+
 }

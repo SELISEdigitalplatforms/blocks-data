@@ -56,11 +56,14 @@ test.describe("flow: Overview menu", () => {
         })
         .not.toBeNull();
 
-      const languageButton = page.getByRole("button", { name: /^en$/i });
+      // Drift (a4d35601, genesis-os 4.5.0): the switcher is a "Change language" button showing
+      // the current code, and its menu lists the languages as radio items (still with `lang`).
+      const languageButton = page.getByRole("button", { name: "Change language" });
+      await expect(languageButton).toHaveText(/^en$/i);
       await languageButton.click();
-      await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
+      await expect(page.getByRole("menuitemradio", { name: "English" })).toBeVisible();
 
-      const languageItems = page.locator('[role="menuitem"][lang]');
+      const languageItems = page.locator('[role="menuitemradio"][lang]');
       await expect
         .poll(async () => (await languageItems.evaluateAll((items) => items.map((item) => item.getAttribute("lang")))).sort())
         .toEqual(configuredLanguageCodes);

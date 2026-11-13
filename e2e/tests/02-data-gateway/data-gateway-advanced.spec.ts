@@ -1,8 +1,15 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, type Route } from "@playwright/test";
 import { test } from "../../support/test-base";
-import { openDataGateway, selectSchema } from "../../support/open-data-gateway";
+import {
+  dataGatewaySettledLocator,
+  openDataGateway,
+  resolveDataProjectId,
+  selectSchema,
+} from "../../support/open-data-gateway";
 import { confirmSchemaStructureSaved } from "../../support/confirm-schema-saved";
+import { e2eBaseUrl } from "../../support/env";
 import { waitVisible } from "../../support/wait-visible";
+import { PlaygroundPage } from "../../pages/PlaygroundPage";
 
 /**
  * Advanced Data Gateway coverage — the flows the main flow spec doesn't touch:
@@ -18,36 +25,48 @@ const ts = Date.now();
 const schemaName = `dg_adv_${ts}`;
 const fieldName = `adv_field_${ts}`;
 
+/**
+ * Names of the schemas this file's tests created and still own. A test pushes
+ * a name right after the schema's create succeeds; the afterEach residue
+ * guard below empties the list and deletes each listed schema, in order.
+ */
+const createdSchemas: string[] = [];
+
 test.describe("feature: Data Gateway advanced flows", () => {
   test.setTimeout(480_000);
 
-  // Residue guard: schemaCreated turns true once setup succeeds and the
-  // afterEach removes the schema on every path — the normal one and any
-  // earlier failure — so a mid-test crash cannot leave a dg_adv_* schema
-  // behind. Best-effort only: cleanup errors are swallowed so they never
-  // mask the real test failure.
-  let schemaCreated = false;
-
+  // Residue guard (blocks-data#423 §10 step 7, A15): every test in this file
+  // pushes each schema name onto createdSchemas as soon as its create
+  // succeeds, and the afterEach deletes every listed schema on every path —
+  // the normal one and any earlier failure — so a mid-test crash cannot
+  // leave a schema behind in the shared project. A test that creates
+  // schemas which reference each other pushes the referencing one first,
+  // because the list is deleted in order. Best-effort only: cleanup errors
+  // are swallowed per name so they never mask the real test failure.
+  // #417 and #420 append their names here too.
   test.afterEach(async ({ page }) => {
-    if (!schemaCreated) return;
-    schemaCreated = false;
-    try {
-      // A failure inside the access-inspector steps leaves the
-      // "Save changes?" checkpoint up, which blocks schema selection —
-      // discard it before navigating.
-      const checkpoint = page.getByRole("heading", { name: "Save changes?" });
-      if (await waitVisible(checkpoint, 3_000)) {
-        await page.getByRole("button", { name: "Discard" }).click();
+    const names = createdSchemas.splice(0);
+    for (const name of names) {
+      try {
+        // A failure in a mobile step leaves the small viewport behind.
+        await page.setViewportSize({ width: 1440, height: 900 });
+        // A failure inside the access-inspector steps leaves the
+        // "Save changes?" checkpoint up, which blocks schema selection —
+        // discard it before navigating.
+        const checkpoint = page.getByRole("heading", { name: "Save changes?" });
+        if (await waitVisible(checkpoint, 3_000)) {
+          await page.getByRole("button", { name: "Discard" }).click();
+        }
+        if (await selectSchema(page, name)) {
+          await deleteCurrentSchema(page);
+        }
+      } catch {
+        // environment cleanup is best-effort
       }
-      if (await selectSchema(page, schemaName)) {
-        await deleteCurrentSchema(page);
-      }
-    } catch {
-      // environment cleanup is best-effort
     }
   });
 
-  async function createSchema(page: Page, name: string) {
+  async function createSchema(page: Page, name: string, schemaType: "Entity" | "Child" = "Entity") {
     await openDataGateway(page);
     const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
     const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
@@ -87,6 +106,12 @@ test.describe("feature: Data Gateway advanced flows", () => {
       has: page.getByRole("heading", { name: "Add New Schema" }),
     });
     await expect(dialog).toBeVisible({ timeout: 30_000 });
+
+    if (schemaType === "Child") {
+      // The dialog's type select defaults to Entity (AddEditSchemaModal.selectSchemaType).
+      await dialog.locator("#schemaType").or(dialog.getByRole("combobox")).first().click();
+      await page.getByRole("option", { name: "Child" }).click();
+    }
 
     const nameInput = dialog.getByLabel(/Schema name/);
     await nameInput.click();
@@ -188,7 +213,7 @@ test.describe("feature: Data Gateway advanced flows", () => {
     await test.step("Setup: create an Entity schema with one String field", async () => {
       await createSchema(page, schemaName);
       await addStringField(page, fieldName);
-      schemaCreated = true;
+      createdSchemas.push(schemaName);
     });
 
     await test.step("Indexes tab: system index listed, custom unique index can be added and deleted", async () => {
@@ -592,5 +617,568 @@ test.describe("feature: Data Gateway advanced flows", () => {
     });
     // The schema itself is deleted by the afterEach residue guard above —
     // on the happy path and after any earlier failure alike.
+  });
+
+  // ─── Shared helpers for the week's specs (blocks-data#417, #420, #423) ────
+
+  /**
+   * Open toasts. The app shows at most one at a time (use-toast TOAST_LIMIT 1). CSS, not a role
+   * query: an open dialog marks the rest of the page aria-hidden, toast viewport included.
+   */
+  function toasts(page: Page): Locator {
+    return page.locator("[role='region'][aria-label^='Notifications'] li[data-state='open']");
+  }
+
+  /**
+   * Applies a colour scheme for a design screenshot. The account's theme is "Auto" (the overview
+   * spec leaves it there), so emulating the media query is enough; when it is not, fall back to the
+   * app's theme menu and report that, so the run shows which path took the screenshot.
+   */
+  async function applyColorScheme(page: Page, scheme: "light" | "dark"): Promise<void> {
+    await page.emulateMedia({ colorScheme: scheme });
+    const html = page.locator("html");
+    const check = () =>
+      scheme === "dark"
+        ? expect(html).toHaveClass(/\bdark\b/, { timeout: 3_000 })
+        : expect(html).not.toHaveClass(/\bdark\b/, { timeout: 3_000 });
+    if (await check().then(() => true, () => false)) return;
+    test.info().annotations.push({ type: "theme", description: `theme menu used for ${scheme}` });
+    await page.getByRole("button", { name: "Change theme" }).click();
+    await page.getByText(scheme === "dark" ? "Dark" : "Light", { exact: true }).click();
+    await check();
+  }
+
+  /**
+   * Screenshots one element in the light and the dark theme into this test's output folder (design
+   * evidence for the specs' §4; kept with the run's reports, never in the repository). Hovering a
+   * toast pauses its auto-dismiss timer, so it stays up for both shots.
+   */
+  async function screenshotBothThemes(page: Page, target: Locator, name: string): Promise<void> {
+    for (const scheme of ["light", "dark"] as const) {
+      await applyColorScheme(page, scheme);
+      await target.hover().catch(() => {});
+      await target.screenshot({ path: test.info().outputPath(`${name}-${scheme}.png`), animations: "disabled" });
+    }
+    await applyColorScheme(page, "light");
+    await page.emulateMedia({ colorScheme: null });
+  }
+
+  /**
+   * Enters edit mode and starts a new property row named `name`. A late schemaDetails.fields
+   * refetch after a save or a create force-exits edit mode (schema-structure.tsx, see the PII step),
+   * so retry until the new row holds the name while edit mode is still active.
+   */
+  async function startNewProperty(page: Page, name: string) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // Let the details refetch settle first: no schema details request for 3 s (at most 30 s).
+    let lastDetails = Date.now();
+    const onRequest = (request: { url(): string }) => {
+      if (new URL(request.url()).pathname.endsWith("/schemas/get-by-id")) lastDetails = Date.now();
+    };
+    page.on("request", onRequest);
+    try {
+      await expect.poll(() => Date.now() - lastDetails, { timeout: 30_000, intervals: [500] }).toBeGreaterThan(3_000);
+    } catch {
+      // still noisy after 30 s: the retry below handles a dropped edit mode
+    } finally {
+      page.off("request", onRequest);
+    }
+    await expect(async () => {
+      const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+      if (!(await cancel.isVisible().catch(() => false))) {
+        await page.getByRole("button", { name: "Edit", exact: true }).click();
+        await expect(cancel).toBeVisible({ timeout: 10_000 });
+      }
+      const nameInputs = page.locator("table:visible").getByPlaceholder("Click to edit");
+      const last = nameInputs.last();
+      if ((await last.inputValue({ timeout: 1_000 }).catch(() => "x")) !== "") {
+        await page.getByRole("button", { name: "+ Add property" }).click();
+      }
+      await expect(last).toBeVisible({ timeout: 5_000 });
+      await last.scrollIntoViewIfNeeded();
+      await last.fill(name);
+      await expect(last).toHaveValue(name);
+      await expect(cancel).toBeVisible();
+    }).toPass({ timeout: 90_000 });
+  }
+
+  /** Adds a property row named `name` and saves it (Save, then Update), retrying a dropped edit mode. */
+  async function saveNewProperty(page: Page, name: string) {
+    await expect(async () => {
+      await startNewProperty(page, name);
+      await page.getByRole("button", { name: "Save", exact: true }).click({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Update" }).click({ timeout: 10_000 });
+    }).toPass({ timeout: 180_000 });
+  }
+
+  /** Counts the requests for one schema's details (`/schemas/get-by-id?id=<id>`) until stopped. */
+  function countDetailsRequests(page: Page, id: string) {
+    let count = 0;
+    const onRequest = (request: { url(): string }) => {
+      const url = new URL(request.url());
+      if (url.pathname.endsWith("/schemas/get-by-id") && url.searchParams.get("id") === id) count++;
+    };
+    page.on("request", onRequest);
+    return {
+      stop: () => {
+        page.off("request", onRequest);
+        return count;
+      },
+    };
+  }
+
+  async function publishPendingSchemas(page: Page, name: string) {
+    expect(await selectSchema(page, name)).toBe(true);
+    // Publish publishes every pending draft in the shared project (accepted, #423 A15).
+    // Exact: sidebar rows of schemas with drafts carry "Unpublished changes" in their name.
+    const publishButton = page.getByRole("button", { name: "Publish", exact: true });
+    const pendingCount = page.getByText(/\d+ unpublished/);
+    await expect(pendingCount).toBeVisible({ timeout: 15_000 });
+    await publishButton.click();
+    await expect(page.getByText("Schemas published successfully").first()).toBeVisible({
+      timeout: 45_000,
+    });
+    await expect(pendingCount).toBeHidden({ timeout: 15_000 });
+  }
+
+  /** Opens the "Add New Schema" dialog with `opener`, fills a name as createSchema does, and clicks Add once. */
+  async function submitAddSchemaDialog(page: Page, opener: Locator, name: string): Promise<Locator> {
+    await expect(opener).toBeVisible({ timeout: 30_000 });
+    await opener.click();
+    const dialog = page.getByRole("dialog").filter({
+      has: page.getByRole("heading", { name: "Add New Schema" }),
+    });
+    await expect(dialog).toBeVisible({ timeout: 30_000 });
+    const nameInput = dialog.getByLabel(/Schema name/);
+    await nameInput.click();
+    await nameInput.fill("");
+    await nameInput.pressSequentially(name, { delay: 15 });
+    await nameInput.blur();
+    const entityInput = dialog.locator("#entityName");
+    if (await waitVisible(entityInput, 2_000)) {
+      await expect.poll(() => entityInput.inputValue().catch(() => ""), { timeout: 5_000 }).not.toBe("");
+    }
+    const addBtn = dialog.getByRole("button", { name: "Add", exact: true });
+    await expect(addBtn).toBeEnabled({ timeout: 15_000 });
+    await addBtn.click();
+    return dialog;
+  }
+
+  test("list queries read a bounded page: pageSize 0 and 1001 read the cap, invalid paging is refused (#423 H11, C1, C2, C13, C14)", async ({
+    page,
+  }) => {
+    const pageSchema = `dg_page_${ts}`;
+    const titleField = `pg_title_${ts}`;
+    const playground = new PlaygroundPage(page);
+    type GqlBody = {
+      data?: Record<string, unknown> | null;
+      errors?: Array<{ message?: string; extensions?: { code?: string } }>;
+    };
+    type ListPage = { items: Array<Record<string, unknown>>; pageSize: number; totalCount: number; hasNextPage: boolean };
+
+    // Sends one query through the playground's own Execute: the next query POST to /gateway gets
+    // this body instead of the editor's (introspection POSTs pass through), and the real server
+    // answers it (§10 "How queries are sent").
+    const send = async (query: string): Promise<{ status: number; body: GqlBody }> => {
+      const rewrite = (route: Route) => {
+        const request = route.request();
+        if (request.method() !== "POST" || (request.postData() ?? "").includes("__schema")) {
+          return route.fallback();
+        }
+        return route.continue({ postData: JSON.stringify({ query }) });
+      };
+      await page.route("**/gateway", rewrite);
+      try {
+        const response = await playground.executeQuery();
+        return { status: response.status(), body: (await response.json()) as GqlBody };
+      } finally {
+        await page.unroute("**/gateway", rewrite);
+      }
+    };
+    const statuses: string[] = [];
+    let list = "";
+
+    await test.step("Setup: create, add a String field and publish (§10 step 1)", async () => {
+      await createSchema(page, pageSchema);
+      createdSchemas.push(pageSchema);
+      await addStringField(page, titleField);
+      await publishPendingSchemas(page, pageSchema);
+    });
+
+    await test.step("Find the list and insert fields by introspection (§10 step 2)", async () => {
+      await playground.goto(resolveDataProjectId(page) ?? undefined);
+      await playground.selectGraphQL();
+      const key = `dgpage${ts}`;
+      // The gateway serves the published snapshot once it has reloaded it.
+      await expect
+        .poll(
+          async () => {
+            const { body } = await send('{ __type(name: "Query") { fields { name } } }');
+            const type = body.data?.__type as { fields?: Array<{ name: string }> } | null | undefined;
+            list =
+              (type?.fields ?? [])
+                .map((f) => f.name)
+                .find((n) => n.startsWith("get") && n.toLowerCase().replace(/_/g, "").includes(key)) ?? "";
+            return list;
+          },
+          { timeout: 60_000, intervals: [2_000, 5_000] },
+        )
+        .not.toBe("");
+    });
+
+    await test.step("Seed 3 rows tagged mock-data (§10 step 3)", async () => {
+      const insert = `insert${list.slice(3, -1)}`;
+      const rows = ["r1", "r2", "r3"]
+        .map((v, i) => `${"abc"[i]}: ${insert}(input: { ${titleField}: "${v}", Tags: ["mock-data"] }) { acknowledged }`)
+        .join(" ");
+      const { body } = await send(`mutation { ${rows} }`);
+      expect(body.errors).toBeUndefined();
+    });
+
+    const readPage = async (paging: string) => {
+      const result = await send(`{ ${list}(paging: { ${paging} }) { items { ${titleField} } pageSize totalCount hasNextPage } }`);
+      statuses.push(`${paging} -> HTTP ${result.status}`);
+      return result;
+    };
+
+    await test.step("pageSize 0 and 1001 read the cap of 1000 (H11, C14)", async () => {
+      const zero = await readPage("pageNo: 1, pageSize: 0");
+      expect(zero.body.errors).toBeUndefined();
+      const zeroPage = zero.body.data?.[list] as ListPage;
+      expect(zeroPage.items).toHaveLength(3);
+      expect(zeroPage.pageSize).toBe(1000);
+      expect(zeroPage.totalCount).toBe(3);
+      expect(zeroPage.hasNextPage).toBe(false);
+
+      const above = await readPage("pageNo: 1, pageSize: 1001");
+      expect(above.body.errors).toBeUndefined();
+      const abovePage = above.body.data?.[list] as ListPage;
+      expect(abovePage.items).toHaveLength(3);
+      expect(abovePage.pageSize).toBe(1000);
+    });
+
+    await test.step("Invalid paging answers VALIDATION_ERROR, and the next valid read still works (C1, C2, C13)", async () => {
+      const negative = await readPage("pageNo: 1, pageSize: -1");
+      expect(negative.body.data?.[list]).toBeNull();
+      expect(negative.body.errors?.[0]?.extensions?.code).toBe("VALIDATION_ERROR");
+      expect(negative.body.errors?.[0]?.message).toBe("'pageSize' must be 0 or greater.");
+
+      const pageZero = await readPage("pageNo: 0, pageSize: 10");
+      expect(pageZero.body.data?.[list]).toBeNull();
+      expect(pageZero.body.errors?.[0]?.extensions?.code).toBe("VALIDATION_ERROR");
+      expect(pageZero.body.errors?.[0]?.message).toBe("'pageNo' must be 1 or greater.");
+
+      const valid = await readPage("pageNo: 1, pageSize: 1000");
+      expect(valid.body.errors).toBeUndefined();
+      expect((valid.body.data?.[list] as ListPage).items).toHaveLength(3);
+
+      // C5 evidence: the HTTP status the tenant GraphQL pipeline gives each answer.
+      test.info().annotations.push({ type: "C5 observed HTTP status", description: statuses.join("; ") });
+    });
+
+    await test.step("Clean the rows through Clean test data, best-effort (§10 step 6)", async () => {
+      try {
+        await playground.openCleanTestDataModal();
+        const dialog = page.getByRole("dialog");
+        const row = dialog.locator("label").filter({ hasText: pageSchema }).filter({ hasText: "(3 records)" });
+        if (await waitVisible(row, 15_000)) {
+          await row.click();
+          await dialog.getByRole("button", { name: "Delete" }).click();
+          await expect(page.getByText(/Successfully deleted test data/).first()).toBeVisible({ timeout: 30_000 });
+        } else {
+          await playground.closeCleanTestDataModal();
+        }
+      } catch {
+        // best-effort: the residue guard deletes the schema, which drops its rows too
+      }
+    });
+  });
+
+  test("schema not found: 404 contract, not-found panel, unavailable tree row, no refetch after delete (#420)", async ({
+    page,
+  }) => {
+    const nfSchema = `dg_nf_${ts}`;
+    const dtoSchema = `dg_nf_dto_${ts}`;
+    const entSchema = `dg_nf_ent_${ts}`;
+    const objField = `nf_obj_${ts}`;
+    // §6.1: every schema-not-found endpoint answers this body with HTTP 404.
+    const notFoundBody = { isSuccess: false, message: "Schema not found", httpStatusCode: 404, data: null, errors: null };
+    const fulfillNotFound = (route: Route) =>
+      route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify(notFoundBody) });
+    // C2: no schema endpoint may answer 204 any more.
+    const noContent: string[] = [];
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (url.pathname.includes("/api/schemas") && response.status() === 204) {
+        noContent.push(`${response.request().method()} ${url.pathname}`);
+      }
+    });
+    let schemaId = "";
+    let origin = "";
+    let replayHeaders: Record<string, string> = {};
+    let fieldsBody: unknown;
+
+    await test.step("Create the schema and capture its details request (H1)", async () => {
+      await createSchema(page, nfSchema);
+      createdSchemas.push(nfSchema);
+      schemaId = new URL(page.url()).searchParams.get("schemaId") ?? "";
+      expect(schemaId).not.toBe("");
+      const [request] = await Promise.all([
+        page.waitForRequest((r) => {
+          const url = new URL(r.url());
+          return url.pathname.endsWith("/schemas/get-by-id") && url.searchParams.get("id") === schemaId;
+        }),
+        page.reload(),
+      ]);
+      origin = new URL(request.url()).origin;
+      // page.request sends the context cookies itself; never log these headers.
+      replayHeaders = Object.fromEntries(
+        Object.entries(await request.allHeaders()).filter(
+          ([name]) => !["host", "cookie", "content-length"].includes(name) && !name.startsWith(":"),
+        ),
+      );
+      const response = await request.response();
+      expect(response?.status()).toBe(200);
+      expect(((await response!.json()) as { data: { id: string } }).data.id).toBe(schemaId);
+    });
+
+    await test.step("A real save, keeping its body (H13)", async () => {
+      const fieldsRequest = page.waitForRequest(
+        (r) => r.method() === "POST" && new URL(r.url()).pathname.endsWith("/schemas/fields"),
+      );
+      await addStringField(page, `nf_field_${ts}`);
+      fieldsBody = (await fieldsRequest).postDataJSON();
+    });
+
+    await test.step("A save answered 404 shows the no-longer-exists toast and leaves the schema (H9)", async () => {
+      // The mocked 404 proves the client handling only; step 5 proves the server's.
+      await page.route("**/api/schemas/fields", fulfillNotFound);
+      try {
+        await saveNewProperty(page, `nf_gone_${ts}`);
+        const toast = toasts(page).filter({ hasText: "This schema no longer exists" });
+        await expect(toast).toBeVisible({ timeout: 15_000 });
+        await screenshotBothThemes(page, toast, "420-toast-schema-no-longer-exists");
+        await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
+        await expect(page).not.toHaveURL(/schemaId=/);
+        await expect(dataGatewaySettledLocator(page)).toBeVisible({ timeout: 30_000 });
+      } finally {
+        await page.unroute("**/api/schemas/fields", fulfillNotFound);
+      }
+      expect(await selectSchema(page, nfSchema)).toBe(true);
+    });
+
+    await test.step("Delete does not refetch the deleted schema (H11, C9)", async () => {
+      const details = countDetailsRequests(page, schemaId);
+      await deleteCurrentSchema(page);
+      // The absence of a refetch can only be observed over time; §10 step 4 fixes the window at 5 s.
+      await page.waitForTimeout(5_000);
+      expect(details.stop()).toBe(0);
+      await expect(page).not.toHaveURL(/schemaId=/);
+    });
+
+    await test.step("The server answers 404 with the §6.1 body (H2, H3, C2)", async () => {
+      const options = { headers: replayHeaders, failOnStatusCode: false };
+      const started = Date.now();
+      const get = await page.request.get(`${origin}/api/schemas/get-by-id?id=${encodeURIComponent(schemaId)}`, options);
+      test.info().annotations.push({ type: "get-by-id 404 timing (informational)", description: `${Date.now() - started} ms` });
+      const post = await page.request.post(`${origin}/api/schemas/fields`, { ...options, data: fieldsBody });
+      const del = await page.request.delete(`${origin}/api/schemas?id=${encodeURIComponent(schemaId)}`, options);
+      for (const [label, response] of [["GET get-by-id", get], ["POST fields", post], ["DELETE schemas", del]] as const) {
+        expect(response.status(), label).toBe(404);
+        expect(await response.json(), label).toEqual(notFoundBody);
+      }
+    });
+
+    const notFoundUrl = () =>
+      `${e2eBaseUrl()}/app/${resolveDataProjectId(page)}/data-gateway?type=all&schemaId=${schemaId}`;
+    const panel = page.locator("output:visible").filter({ has: page.getByRole("heading", { name: "Schema not found" }) });
+    const backToSchemas = page.getByRole("button", { name: "Back to schemas" });
+
+    await test.step("A deleted schema's link shows the not-found panel after one request (H4, H5, C6)", async () => {
+      const url = notFoundUrl();
+      const details = countDetailsRequests(page, schemaId);
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await expect(panel).toBeVisible({ timeout: 30_000 });
+      await expect(backToSchemas).toBeVisible();
+      await expect(page.getByRole("button", { name: "More options" })).toHaveCount(0);
+      // A 404 is not retried or refetched: exactly one request over §10 step 6's 5 s window.
+      await page.waitForTimeout(5_000);
+      expect(details.stop()).toBe(1);
+      await screenshotBothThemes(page, panel, "420-not-found-panel-desktop");
+      await backToSchemas.click();
+      await expect(page).not.toHaveURL(/schemaId=/);
+      await expect(dataGatewaySettledLocator(page)).toBeVisible({ timeout: 30_000 });
+    });
+
+    await test.step("Mobile: the panel, its button and the back arrow (H4)", async () => {
+      const url = notFoundUrl();
+      await page.setViewportSize({ width: 390, height: 844 });
+      try {
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+        await expect(panel).toBeVisible({ timeout: 30_000 });
+        await expect(backToSchemas).toBeVisible();
+        await expect(page.getByRole("button", { name: "Back to schema list" })).toBeVisible();
+        await screenshotBothThemes(page, panel, "420-not-found-panel-mobile");
+      } finally {
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+    });
+
+    await test.step("A child schema that is gone shows one unavailable row in the tree (H7)", async () => {
+      // The entity references the DTO, so it is deleted first.
+      createdSchemas.push(entSchema, dtoSchema);
+      await createSchema(page, dtoSchema, "Child");
+      // A Child schema with no fields opens edit mode with one empty row, which startNewProperty
+      // fills (addStringField would add a second row and leave the empty one blocking Save).
+      await saveNewProperty(page, `nf_dto_field_${ts}`);
+      await confirmSchemaStructureSaved(page);
+      await createSchema(page, entSchema);
+
+      await startNewProperty(page, objField);
+      const typeCombo = page
+        .locator("table:visible")
+        .getByRole("combobox")
+        .filter({ hasText: /Select type|^String$/i })
+        .last();
+      await typeCombo.click();
+      await expect(page.getByText("Child Types")).toBeVisible({ timeout: 10_000 });
+      const search = page.getByPlaceholder("Search…");
+      if (await waitVisible(search, 2_000)) await search.fill(dtoSchema);
+      await page.locator("[cmdk-item], [role='option']").filter({ hasText: dtoSchema }).first().click();
+      await page.getByRole("button", { name: "Save", exact: true }).click({ timeout: 15_000 });
+      await page.getByRole("button", { name: "Update" }).click({ timeout: 15_000 });
+      await confirmSchemaStructureSaved(page);
+
+      const parentId = new URL(page.url()).searchParams.get("schemaId");
+      expect(parentId).toBeTruthy();
+      // A top-level property's toggle is named after its child schema ("Expand <schema> attributes",
+      // SCHEMA_DESKTOP_ROW.EXPAND_SCHEMANAME_ATTRIBUTES); "Expand <path>" (§10 step 8) names nested rows.
+      const expand = page.getByRole("button", { name: `Expand ${dtoSchema} attributes` });
+      await expect(expand).toBeVisible({ timeout: 30_000 });
+      const detailsExceptParent = (route: Route) =>
+        new URL(route.request().url()).searchParams.get("id") === parentId ? route.fallback() : fulfillNotFound(route);
+      await page.route("**/api/schemas/get-by-id**", detailsExceptParent);
+      try {
+        await expand.click();
+        const unavailable = page.getByText("This schema no longer exists", { exact: true }).locator("visible=true");
+        await expect(unavailable).toHaveCount(1, { timeout: 15_000 });
+        await expect(page.getByText("Loading fields…").locator("visible=true")).toHaveCount(0);
+        await screenshotBothThemes(page, page.locator("table:visible").first(), "420-tree-unavailable-row");
+      } finally {
+        await page.unroute("**/api/schemas/get-by-id**", detailsExceptParent);
+      }
+    });
+
+    expect(noContent, "schema endpoints answered 204").toEqual([]);
+  });
+
+  test("unique collection names: create preserved, conflict and import-failure toasts, mock data list (#417)", async ({
+    page,
+  }) => {
+    const okSchema = `E2eSpec1Ok${ts}`;
+    const conflictMessage = "Collection name 'sb_E2eX' is already used by schema 'E2eY'";
+    const importLine = "Document[0]: CollectionName 'sb_E2eX' is already used by schema 'E2eY'.";
+    const createRejected = (message?: string) => (route: Route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({
+            status: 400,
+            contentType: "application/json",
+            body: JSON.stringify({ isSuccess: false, ...(message ? { message } : {}), httpStatusCode: 400, data: null, errors: null }),
+          })
+        : route.fallback();
+    const toastWith = (page: Page, text: string) => toasts(page).filter({ has: page.getByText(text, { exact: true }) });
+
+    await test.step("A create with an unused collection name works as before (H1)", async () => {
+      const added = page.getByText("Schema added successfully").first().waitFor({ state: "visible", timeout: 60_000 });
+      await createSchema(page, okSchema);
+      createdSchemas.push(okSchema);
+      await added;
+    });
+
+    // The mocked 400s prove the client rendering only; xUnit covers the server rule (§10).
+    const expectCreateToast = async (opener: () => Promise<Locator>, message: string | undefined, text: string, shot?: string) => {
+      const handler = createRejected(message);
+      await page.route("**/api/schemas/info", handler);
+      try {
+        const dialog = await submitAddSchemaDialog(page, await opener(), `E2eRejected${ts}`);
+        const toast = toastWith(page, text);
+        await expect(toast).toBeVisible({ timeout: 15_000 });
+        await expect(toasts(page)).toHaveCount(1);
+        if (shot) await screenshotBothThemes(page, toast, shot);
+        // Each page closes the dialog only on success, so it is still open.
+        await expect(dialog).toBeVisible();
+        await dialog.getByRole("button", { name: "Cancel" }).click();
+        await expect(dialog).toBeHidden({ timeout: 10_000 });
+      } finally {
+        await page.unroute("**/api/schemas/info", handler);
+      }
+    };
+    const detailsPageAdd = async () => {
+      await openDataGateway(page);
+      return page.getByRole("button", { name: "Add", exact: true }).first();
+    };
+    const securityPageAdd = async () => {
+      await openDataGateway(page);
+      const securityLink = page.getByRole("link", { name: /^Security/ });
+      await expect(securityLink).toBeVisible({ timeout: 15_000 });
+      await securityLink.click();
+      await expect(page).toHaveURL(/\/data-gateway\/security/, { timeout: 30_000 });
+      return page.getByRole("button", { name: /^Add Schema$/i }).first();
+    };
+
+    await test.step("Schema details page: the server's conflict message, else the generic text (H7, H11, C14)", async () => {
+      await expectCreateToast(detailsPageAdd, conflictMessage, conflictMessage, "417-toast-collection-conflict");
+      await expectCreateToast(detailsPageAdd, undefined, "An unexpected error occurred");
+    });
+
+    await test.step("Security and performance page: the same message, else its generic text (H7, C14)", async () => {
+      await expectCreateToast(securityPageAdd, conflictMessage, conflictMessage);
+      await expectCreateToast(securityPageAdd, undefined, "An unexpected error occurred. Please try again.");
+    });
+
+    await test.step("A failed import shows one toast per notification (H8, C9)", async () => {
+      await openDataGateway(page);
+      const dispatch = (correlationId: string, errors: string[]) =>
+        page.evaluate(
+          ([c, e]) =>
+            window.dispatchEvent(
+              new CustomEvent("schema-import", {
+                detail: { message: { denormalizedPayload: { IsSuccess: false, FileId: "e2e", CorrelationId: c, Errors: e } } },
+              }),
+            ),
+          [correlationId, errors] as const,
+        );
+      const correlationId = `e2e-${ts}`;
+      await dispatch(correlationId, [importLine]);
+      const importToast = toastWith(page, "Schema import failed:");
+      await expect(importToast).toBeVisible({ timeout: 15_000 });
+      await expect(importToast).toContainText(importLine);
+      await expect(toasts(page)).toHaveCount(1);
+      await screenshotBothThemes(page, importToast, "417-toast-import-failed");
+
+      // Let it auto-dismiss, then repeat the same notification: no second toast.
+      await page.mouse.move(0, 0);
+      await expect(toasts(page)).toHaveCount(0, { timeout: 30_000 });
+      await dispatch(correlationId, [importLine]);
+      // Absence can only be observed over time.
+      await page.waitForTimeout(3_000);
+      await expect(toasts(page)).toHaveCount(0);
+
+      await dispatch(`${correlationId}-generic`, []);
+      await expect(toastWith(page, "Error processing import schema")).toBeVisible({ timeout: 15_000 });
+    });
+
+    await test.step("Clean test data loads its list without an error (H2, H10)", async () => {
+      const playground = new PlaygroundPage(page);
+      await playground.goto(resolveDataProjectId(page) ?? undefined);
+      await playground.openCleanTestDataModal();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByText(/^Select All/).or(dialog.getByText(/no test data found/i))).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(toasts(page).filter({ hasText: /fail|error/i })).toHaveCount(0);
+      await playground.closeCleanTestDataModal();
+    });
+    // The residue guard deletes okSchema.
   });
 });

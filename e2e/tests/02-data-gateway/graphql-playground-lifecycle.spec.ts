@@ -116,7 +116,9 @@ test.describe("feature: GraphQL playground Monaco lifecycle (#421)", () => {
       await expect(runLens).toBeVisible({ timeout: 15_000 });
       const before = gatewayRequests;
       await runLens.click();
-      await expect(page.locator("span").filter({ hasText: /^Response$/ }).first()).toBeVisible({ timeout: 15_000 });
+      // Drift (f67be98b, REST-first playground): the hidden REST workspace renders a "Response" label
+      // too and comes first in the DOM, so only the visible label is the GraphQL response.
+      await expect(page.locator("span:visible", { hasText: /^Response$/ }).first()).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText("// Execute a query to see the response")).toBeHidden({ timeout: 15_000 });
       await page.waitForTimeout(1_500);
       expect(gatewayRequests - before).toBe(1);

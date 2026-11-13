@@ -115,12 +115,12 @@ public static class ContentSecurityPolicy
             "default-src 'self' blob:;",
             "script-src 'self';",
 
-            // Styles. <style> elements need the style nonce (StyleNonce). genesis-os, Radix,
-            // vaul, cmdk and the GraphQL playground editor create them at runtime;
-            // /csp-nonce.js stamps the nonce on every <style> made through
-            // document.createElement, and the server writes the same nonce into index.html (see
-            // WithStyleNonce / RenderIndex). Same approach as blocks-iam (66f9b48d),
-            // blocks-release (1ae6edc) and blocks-monitor (b4f78c8).
+            // Styles. Style elements need the style nonce, see StyleNonce. The genesis-os, Radix,
+            // vaul and cmdk components and the GraphQL playground editor create them at runtime.
+            // The csp-nonce.js shim stamps the nonce on every style element the page creates, and
+            // the server writes the same nonce into the SPA shell, see WithStyleNonce and
+            // RenderIndex. This is the same approach as blocks-iam 66f9b48d, blocks-release 1ae6edc
+            // and blocks-monitor b4f78c8.
             //
             // Style attributes stay allowed through style-src-attr only: components set them,
             // an attribute cannot carry a nonce, and an attribute cannot load a script.

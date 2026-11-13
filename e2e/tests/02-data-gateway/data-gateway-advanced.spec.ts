@@ -741,6 +741,29 @@ test.describe("feature: Data Gateway advanced flows", () => {
     await expect(pendingCount).toBeHidden({ timeout: 15_000 });
   }
 
+  /** Opens the "Add New Schema" dialog with `opener`, fills a name as createSchema does, and clicks Add once. */
+  async function submitAddSchemaDialog(page: Page, opener: Locator, name: string): Promise<Locator> {
+    await expect(opener).toBeVisible({ timeout: 30_000 });
+    await opener.click();
+    const dialog = page.getByRole("dialog").filter({
+      has: page.getByRole("heading", { name: "Add New Schema" }),
+    });
+    await expect(dialog).toBeVisible({ timeout: 30_000 });
+    const nameInput = dialog.getByLabel(/Schema name/);
+    await nameInput.click();
+    await nameInput.fill("");
+    await nameInput.pressSequentially(name, { delay: 15 });
+    await nameInput.blur();
+    const entityInput = dialog.locator("#entityName");
+    if (await waitVisible(entityInput, 2_000)) {
+      await expect.poll(() => entityInput.inputValue().catch(() => ""), { timeout: 5_000 }).not.toBe("");
+    }
+    const addBtn = dialog.getByRole("button", { name: "Add", exact: true });
+    await expect(addBtn).toBeEnabled({ timeout: 15_000 });
+    await addBtn.click();
+    return dialog;
+  }
+
   test("list queries read a bounded page: pageSize 0 and 1001 read the cap, invalid paging is refused (#423 H11, C1, C2, C13, C14)", async ({
     page,
   }) => {
@@ -1049,4 +1072,113 @@ test.describe("feature: Data Gateway advanced flows", () => {
     expect(noContent, "schema endpoints answered 204").toEqual([]);
   });
 
+  test("unique collection names: create preserved, conflict and import-failure toasts, mock data list (#417)", async ({
+    page,
+  }) => {
+    const okSchema = `E2eSpec1Ok${ts}`;
+    const conflictMessage = "Collection name 'sb_E2eX' is already used by schema 'E2eY'";
+    const importLine = "Document[0]: CollectionName 'sb_E2eX' is already used by schema 'E2eY'.";
+    const createRejected = (message?: string) => (route: Route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({
+            status: 400,
+            contentType: "application/json",
+            body: JSON.stringify({ isSuccess: false, ...(message ? { message } : {}), httpStatusCode: 400, data: null, errors: null }),
+          })
+        : route.fallback();
+    const toastWith = (page: Page, text: string) => toasts(page).filter({ has: page.getByText(text, { exact: true }) });
+
+    await test.step("A create with an unused collection name works as before (H1)", async () => {
+      const added = page.getByText("Schema added successfully").first().waitFor({ state: "visible", timeout: 60_000 });
+      await createSchema(page, okSchema);
+      createdSchemas.push(okSchema);
+      await added;
+    });
+
+    // The mocked 400s prove the client rendering only; xUnit covers the server rule (§10).
+    const expectCreateToast = async (opener: () => Promise<Locator>, message: string | undefined, text: string, shot?: string) => {
+      const handler = createRejected(message);
+      await page.route("**/api/schemas/info", handler);
+      try {
+        const dialog = await submitAddSchemaDialog(page, await opener(), `E2eRejected${ts}`);
+        const toast = toastWith(page, text);
+        await expect(toast).toBeVisible({ timeout: 15_000 });
+        await expect(toasts(page)).toHaveCount(1);
+        if (shot) await screenshotBothThemes(page, toast, shot);
+        // Each page closes the dialog only on success, so it is still open.
+        await expect(dialog).toBeVisible();
+        await dialog.getByRole("button", { name: "Cancel" }).click();
+        await expect(dialog).toBeHidden({ timeout: 10_000 });
+      } finally {
+        await page.unroute("**/api/schemas/info", handler);
+      }
+    };
+    const detailsPageAdd = async () => {
+      await openDataGateway(page);
+      return page.getByRole("button", { name: "Add", exact: true }).first();
+    };
+    const securityPageAdd = async () => {
+      await openDataGateway(page);
+      const securityLink = page.getByRole("link", { name: /^Security/ });
+      await expect(securityLink).toBeVisible({ timeout: 15_000 });
+      await securityLink.click();
+      await expect(page).toHaveURL(/\/data-gateway\/security/, { timeout: 30_000 });
+      return page.getByRole("button", { name: /^Add Schema$/i }).first();
+    };
+
+    await test.step("Schema details page: the server's conflict message, else the generic text (H7, H11, C14)", async () => {
+      await expectCreateToast(detailsPageAdd, conflictMessage, conflictMessage, "417-toast-collection-conflict");
+      await expectCreateToast(detailsPageAdd, undefined, "An unexpected error occurred");
+    });
+
+    await test.step("Security and performance page: the same message, else its generic text (H7, C14)", async () => {
+      await expectCreateToast(securityPageAdd, conflictMessage, conflictMessage);
+      await expectCreateToast(securityPageAdd, undefined, "An unexpected error occurred. Please try again.");
+    });
+
+    await test.step("A failed import shows one toast per notification (H8, C9)", async () => {
+      await openDataGateway(page);
+      const dispatch = (correlationId: string, errors: string[]) =>
+        page.evaluate(
+          ([c, e]) =>
+            window.dispatchEvent(
+              new CustomEvent("schema-import", {
+                detail: { message: { denormalizedPayload: { IsSuccess: false, FileId: "e2e", CorrelationId: c, Errors: e } } },
+              }),
+            ),
+          [correlationId, errors] as const,
+        );
+      const correlationId = `e2e-${ts}`;
+      await dispatch(correlationId, [importLine]);
+      const importToast = toastWith(page, "Schema import failed:");
+      await expect(importToast).toBeVisible({ timeout: 15_000 });
+      await expect(importToast).toContainText(importLine);
+      await expect(toasts(page)).toHaveCount(1);
+      await screenshotBothThemes(page, importToast, "417-toast-import-failed");
+
+      // Let it auto-dismiss, then repeat the same notification: no second toast.
+      await page.mouse.move(0, 0);
+      await expect(toasts(page)).toHaveCount(0, { timeout: 30_000 });
+      await dispatch(correlationId, [importLine]);
+      // Absence can only be observed over time.
+      await page.waitForTimeout(3_000);
+      await expect(toasts(page)).toHaveCount(0);
+
+      await dispatch(`${correlationId}-generic`, []);
+      await expect(toastWith(page, "Error processing import schema")).toBeVisible({ timeout: 15_000 });
+    });
+
+    await test.step("Clean test data loads its list without an error (H2, H10)", async () => {
+      const playground = new PlaygroundPage(page);
+      await playground.goto(resolveDataProjectId(page) ?? undefined);
+      await playground.openCleanTestDataModal();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByText(/^Select All/).or(dialog.getByText(/no test data found/i))).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(toasts(page).filter({ hasText: /fail|error/i })).toHaveCount(0);
+      await playground.closeCleanTestDataModal();
+    });
+    // The residue guard deletes okSchema.
+  });
 });

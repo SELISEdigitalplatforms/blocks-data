@@ -8,6 +8,7 @@ import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { e2eOsBaseUrl } from "../../support/env";
 import { waitVisible } from "../../support/wait-visible";
+import { PlaygroundPage } from "../../pages/PlaygroundPage";
 
 function schemaRowLocator(page: Page, schemaName: string) {
   // Sidebar items are role=button divs labeled "{name} Entity|Child".
@@ -242,16 +243,22 @@ test.describe("flow: Data Gateway menu", () => {
       await playgroundTab.click();
       await expect(page).toHaveURL(/\/playground/, { timeout: 10_000 });
 
-      const executeButton = page.getByRole("button", { name: /execute/i }).first();
-      await expect(executeButton).toBeVisible({ timeout: 10_000 });
-      await expect(executeButton).toBeEnabled({ timeout: 10_000 });
-      await executeButton.click();
-
-      const responseHeader = page.locator("span", { hasText: /^Response$/ }).first();
-      await expect(responseHeader).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("// Execute a query to see the response")).toBeHidden({
-        timeout: 15_000,
+      // blocks-data#423 A14: the playground opens on its REST tab and keeps the hidden GraphQL
+      // workspace mounted beside it; the default query, its "Response" label and the Schemas
+      // drawer belong to the GraphQL tab. executeQuery() clicks the visible Execute button and
+      // waits on the visible "Response" label and placeholder only.
+      const playground = new PlaygroundPage(page);
+      await playground.selectGraphQL();
+      // The GraphQL editor opens empty (initialQuery ""), and an empty query answers 400 ("missing the `query`
+      // property") with an Error tab; give it a minimal query so the step still proves a response.
+      await expect(page.locator(".monaco-editor:visible").first()).toBeVisible({ timeout: 30_000 });
+      await page.evaluate(() => {
+        type Editor = { getModel(): { getLanguageId(): string } | null; setValue(v: string): void };
+        const monaco = (window as unknown as { monaco: { editor: { getEditors(): Editor[] } } }).monaco;
+        monaco.editor.getEditors().find((e) => e.getModel()?.getLanguageId() === "graphql")!.setValue("{ __typename }");
       });
+      const response = await playground.executeQuery();
+      expect(response.status()).toBe(200);
 
       await test.step("Playground 'Schemas' button opens a Vaul drawer with search input and the GraphQL schema list", async () => {
         const schemasButton = page.getByRole("button", { name: "Schemas" });

@@ -1,4 +1,4 @@
-import { type Page, type Locator, expect } from "@playwright/test";
+import { type Page, type Locator, type Response, expect } from "@playwright/test";
 import { BasePage } from "./base/BasePage";
 
 export class PlaygroundPage extends BasePage {
@@ -24,15 +24,29 @@ export class PlaygroundPage extends BasePage {
     }
   }
 
+  // The playground keeps the REST and GraphQL workspaces both mounted and hides the inactive one
+  // (playground-page.tsx); both render an "Execute"-like control and a "Response" label. Scope to
+  // visible elements so a locator never resolves to the hidden workspace (blocks-data#423 A14).
   getExecuteButton(): Locator {
-    return this.page.getByRole("button", { name: /execute/i }).first();
+    return this.page.locator("button:visible", { hasText: /execute/i }).first();
   }
 
   getResponseHeader(): Locator {
+    return this.page.locator("span:visible", { hasText: /^Response$/ }).first();
+  }
+
+  getGraphQLTab(): Locator {
     return this.page
-      .locator("span")
-      .filter({ hasText: /^Response$/ })
-      .first();
+      .getByRole("radiogroup", { name: "Protocol" })
+      .getByRole("radio", { name: /GraphQL/ });
+  }
+
+  /** Switches the playground to its GraphQL workspace; it opens on REST (blocks-data#423 A14). */
+  async selectGraphQL(): Promise<void> {
+    const tab = this.getGraphQLTab();
+    await expect(tab).toBeVisible({ timeout: 30_000 });
+    await tab.click();
+    await expect(tab).toHaveAttribute("aria-checked", "true");
   }
 
   getEmptyResponsePlaceholder(): Locator {
@@ -55,12 +69,30 @@ export class PlaygroundPage extends BasePage {
     return this.page.getByRole("button", { name: "Clean test data" });
   }
 
-  async executeQuery(): Promise<void> {
+  /**
+   * Clicks the visible Execute button of the GraphQL workspace and returns the response to the
+   * query POST it sends to `/gateway` (introspection POSTs, which carry `__schema`, are skipped).
+   */
+  async executeQuery(): Promise<Response> {
     await expect(this.getExecuteButton()).toBeVisible({ timeout: 10_000 });
     await expect(this.getExecuteButton()).toBeEnabled({ timeout: 10_000 });
-    await this.getExecuteButton().click();
-    await expect(this.getResponseHeader()).toBeVisible({ timeout: 15_000 });
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (r) =>
+          r.request().method() === "POST" &&
+          new URL(r.url()).pathname.endsWith("/gateway") &&
+          !(r.request().postData() ?? "").includes("__schema"),
+        { timeout: 30_000 },
+      ),
+      this.getExecuteButton().click(),
+    ]);
+    // A 2xx answer opens a "Response" tab; a non-2xx one (the client throws) opens an "Error" tab.
+    const resultTab = response.ok()
+      ? this.getResponseHeader()
+      : this.page.locator("span:visible", { hasText: /^Error$/ }).first();
+    await expect(resultTab).toBeVisible({ timeout: 15_000 });
     await expect(this.getEmptyResponsePlaceholder()).toBeHidden({ timeout: 15_000 });
+    return response;
   }
 
   async openSchemasDrawer(): Promise<void> {

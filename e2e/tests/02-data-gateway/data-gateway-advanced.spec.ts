@@ -1,8 +1,9 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import { test } from "../../support/test-base";
-import { openDataGateway, selectSchema } from "../../support/open-data-gateway";
+import { openDataGateway, resolveDataProjectId, selectSchema } from "../../support/open-data-gateway";
 import { confirmSchemaStructureSaved } from "../../support/confirm-schema-saved";
 import { waitVisible } from "../../support/wait-visible";
+import { PlaygroundPage } from "../../pages/PlaygroundPage";
 
 /**
  * Advanced Data Gateway coverage — the flows the main flow spec doesn't touch:
@@ -18,32 +19,44 @@ const ts = Date.now();
 const schemaName = `dg_adv_${ts}`;
 const fieldName = `adv_field_${ts}`;
 
+/**
+ * Names of the schemas this file's tests created and still own. A test pushes
+ * a name right after the schema's create succeeds; the afterEach residue
+ * guard below empties the list and deletes each listed schema, in order.
+ */
+const createdSchemas: string[] = [];
+
 test.describe("feature: Data Gateway advanced flows", () => {
   test.setTimeout(480_000);
 
-  // Residue guard: schemaCreated turns true once setup succeeds and the
-  // afterEach removes the schema on every path — the normal one and any
-  // earlier failure — so a mid-test crash cannot leave a dg_adv_* schema
-  // behind. Best-effort only: cleanup errors are swallowed so they never
-  // mask the real test failure.
-  let schemaCreated = false;
-
+  // Residue guard (blocks-data#423 §10 step 7, A15): every test in this file
+  // pushes each schema name onto createdSchemas as soon as its create
+  // succeeds, and the afterEach deletes every listed schema on every path —
+  // the normal one and any earlier failure — so a mid-test crash cannot
+  // leave a schema behind in the shared project. A test that creates
+  // schemas which reference each other pushes the referencing one first,
+  // because the list is deleted in order. Best-effort only: cleanup errors
+  // are swallowed per name so they never mask the real test failure.
+  // #417 and #420 append their names here too.
   test.afterEach(async ({ page }) => {
-    if (!schemaCreated) return;
-    schemaCreated = false;
-    try {
-      // A failure inside the access-inspector steps leaves the
-      // "Save changes?" checkpoint up, which blocks schema selection —
-      // discard it before navigating.
-      const checkpoint = page.getByRole("heading", { name: "Save changes?" });
-      if (await waitVisible(checkpoint, 3_000)) {
-        await page.getByRole("button", { name: "Discard" }).click();
+    const names = createdSchemas.splice(0);
+    for (const name of names) {
+      try {
+        // A failure in a mobile step leaves the small viewport behind.
+        await page.setViewportSize({ width: 1440, height: 900 });
+        // A failure inside the access-inspector steps leaves the
+        // "Save changes?" checkpoint up, which blocks schema selection —
+        // discard it before navigating.
+        const checkpoint = page.getByRole("heading", { name: "Save changes?" });
+        if (await waitVisible(checkpoint, 3_000)) {
+          await page.getByRole("button", { name: "Discard" }).click();
+        }
+        if (await selectSchema(page, name)) {
+          await deleteCurrentSchema(page);
+        }
+      } catch {
+        // environment cleanup is best-effort
       }
-      if (await selectSchema(page, schemaName)) {
-        await deleteCurrentSchema(page);
-      }
-    } catch {
-      // environment cleanup is best-effort
     }
   });
 
@@ -188,7 +201,7 @@ test.describe("feature: Data Gateway advanced flows", () => {
     await test.step("Setup: create an Entity schema with one String field", async () => {
       await createSchema(page, schemaName);
       await addStringField(page, fieldName);
-      schemaCreated = true;
+      createdSchemas.push(schemaName);
     });
 
     await test.step("Indexes tab: system index listed, custom unique index can be added and deleted", async () => {
@@ -593,4 +606,151 @@ test.describe("feature: Data Gateway advanced flows", () => {
     // The schema itself is deleted by the afterEach residue guard above —
     // on the happy path and after any earlier failure alike.
   });
+
+  // ─── Shared helpers for the week's specs (blocks-data#417, #420, #423) ────
+
+  async function publishPendingSchemas(page: Page, name: string) {
+    expect(await selectSchema(page, name)).toBe(true);
+    // Publish publishes every pending draft in the shared project (accepted, #423 A15).
+    // Exact: sidebar rows of schemas with drafts carry "Unpublished changes" in their name.
+    const publishButton = page.getByRole("button", { name: "Publish", exact: true });
+    const pendingCount = page.getByText(/\d+ unpublished/);
+    await expect(pendingCount).toBeVisible({ timeout: 15_000 });
+    await publishButton.click();
+    await expect(page.getByText("Schemas published successfully").first()).toBeVisible({
+      timeout: 45_000,
+    });
+    await expect(pendingCount).toBeHidden({ timeout: 15_000 });
+  }
+
+  test("list queries read a bounded page: pageSize 0 and 1001 read the cap, invalid paging is refused (#423 H11, C1, C2, C13, C14)", async ({
+    page,
+  }) => {
+    const pageSchema = `dg_page_${ts}`;
+    const titleField = `pg_title_${ts}`;
+    const playground = new PlaygroundPage(page);
+    type GqlBody = {
+      data?: Record<string, unknown> | null;
+      errors?: Array<{ message?: string; extensions?: { code?: string } }>;
+    };
+    type ListPage = { items: Array<Record<string, unknown>>; pageSize: number; totalCount: number; hasNextPage: boolean };
+
+    // Sends one query through the playground's own Execute: the next query POST to /gateway gets
+    // this body instead of the editor's (introspection POSTs pass through), and the real server
+    // answers it (§10 "How queries are sent").
+    const send = async (query: string): Promise<{ status: number; body: GqlBody }> => {
+      const rewrite = (route: Route) => {
+        const request = route.request();
+        if (request.method() !== "POST" || (request.postData() ?? "").includes("__schema")) {
+          return route.fallback();
+        }
+        return route.continue({ postData: JSON.stringify({ query }) });
+      };
+      await page.route("**/gateway", rewrite);
+      try {
+        const response = await playground.executeQuery();
+        return { status: response.status(), body: (await response.json()) as GqlBody };
+      } finally {
+        await page.unroute("**/gateway", rewrite);
+      }
+    };
+    const statuses: string[] = [];
+    let list = "";
+
+    await test.step("Setup: create, add a String field and publish (§10 step 1)", async () => {
+      await createSchema(page, pageSchema);
+      createdSchemas.push(pageSchema);
+      await addStringField(page, titleField);
+      await publishPendingSchemas(page, pageSchema);
+    });
+
+    await test.step("Find the list and insert fields by introspection (§10 step 2)", async () => {
+      await playground.goto(resolveDataProjectId(page) ?? undefined);
+      await playground.selectGraphQL();
+      const key = `dgpage${ts}`;
+      // The gateway serves the published snapshot once it has reloaded it.
+      await expect
+        .poll(
+          async () => {
+            const { body } = await send('{ __type(name: "Query") { fields { name } } }');
+            const type = body.data?.__type as { fields?: Array<{ name: string }> } | null | undefined;
+            list =
+              (type?.fields ?? [])
+                .map((f) => f.name)
+                .find((n) => n.startsWith("get") && n.toLowerCase().replace(/_/g, "").includes(key)) ?? "";
+            return list;
+          },
+          { timeout: 60_000, intervals: [2_000, 5_000] },
+        )
+        .not.toBe("");
+    });
+
+    await test.step("Seed 3 rows tagged mock-data (§10 step 3)", async () => {
+      const insert = `insert${list.slice(3, -1)}`;
+      const rows = ["r1", "r2", "r3"]
+        .map((v, i) => `${"abc"[i]}: ${insert}(input: { ${titleField}: "${v}", Tags: ["mock-data"] }) { acknowledged }`)
+        .join(" ");
+      const { body } = await send(`mutation { ${rows} }`);
+      expect(body.errors).toBeUndefined();
+    });
+
+    const readPage = async (paging: string) => {
+      const result = await send(`{ ${list}(paging: { ${paging} }) { items { ${titleField} } pageSize totalCount hasNextPage } }`);
+      statuses.push(`${paging} -> HTTP ${result.status}`);
+      return result;
+    };
+
+    await test.step("pageSize 0 and 1001 read the cap of 1000 (H11, C14)", async () => {
+      const zero = await readPage("pageNo: 1, pageSize: 0");
+      expect(zero.body.errors).toBeUndefined();
+      const zeroPage = zero.body.data?.[list] as ListPage;
+      expect(zeroPage.items).toHaveLength(3);
+      expect(zeroPage.pageSize).toBe(1000);
+      expect(zeroPage.totalCount).toBe(3);
+      expect(zeroPage.hasNextPage).toBe(false);
+
+      const above = await readPage("pageNo: 1, pageSize: 1001");
+      expect(above.body.errors).toBeUndefined();
+      const abovePage = above.body.data?.[list] as ListPage;
+      expect(abovePage.items).toHaveLength(3);
+      expect(abovePage.pageSize).toBe(1000);
+    });
+
+    await test.step("Invalid paging answers VALIDATION_ERROR, and the next valid read still works (C1, C2, C13)", async () => {
+      const negative = await readPage("pageNo: 1, pageSize: -1");
+      expect(negative.body.data?.[list]).toBeNull();
+      expect(negative.body.errors?.[0]?.extensions?.code).toBe("VALIDATION_ERROR");
+      expect(negative.body.errors?.[0]?.message).toBe("'pageSize' must be 0 or greater.");
+
+      const pageZero = await readPage("pageNo: 0, pageSize: 10");
+      expect(pageZero.body.data?.[list]).toBeNull();
+      expect(pageZero.body.errors?.[0]?.extensions?.code).toBe("VALIDATION_ERROR");
+      expect(pageZero.body.errors?.[0]?.message).toBe("'pageNo' must be 1 or greater.");
+
+      const valid = await readPage("pageNo: 1, pageSize: 1000");
+      expect(valid.body.errors).toBeUndefined();
+      expect((valid.body.data?.[list] as ListPage).items).toHaveLength(3);
+
+      // C5 evidence: the HTTP status the tenant GraphQL pipeline gives each answer.
+      test.info().annotations.push({ type: "C5 observed HTTP status", description: statuses.join("; ") });
+    });
+
+    await test.step("Clean the rows through Clean test data, best-effort (§10 step 6)", async () => {
+      try {
+        await playground.openCleanTestDataModal();
+        const dialog = page.getByRole("dialog");
+        const row = dialog.locator("label").filter({ hasText: pageSchema }).filter({ hasText: "(3 records)" });
+        if (await waitVisible(row, 15_000)) {
+          await row.click();
+          await dialog.getByRole("button", { name: "Delete" }).click();
+          await expect(page.getByText(/Successfully deleted test data/).first()).toBeVisible({ timeout: 30_000 });
+        } else {
+          await playground.closeCleanTestDataModal();
+        }
+      } catch {
+        // best-effort: the residue guard deletes the schema, which drops its rows too
+      }
+    });
+  });
+
 });

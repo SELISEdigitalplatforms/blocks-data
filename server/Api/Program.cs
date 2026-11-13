@@ -74,17 +74,30 @@ var app = builder.Build();
 // The CSP origins come from configuration (FrontendRuntime + Csp:Extra*), not from a
 // compiled-in host list -- see Blocks.Data.Api.Security.ContentSecurityPolicy.
 var contentSecurityPolicy = Blocks.Data.Api.Security.ContentSecurityPolicy.Build(app.Configuration);
-app.UseMiddleware<Blocks.Data.Api.Middleware.SecurityHeadersMiddleware>(contentSecurityPolicy);
+app.UseMiddleware<Blocks.Data.Api.Middleware.SecurityHeadersMiddleware>(
+    contentSecurityPolicy, Blocks.Data.Api.Security.StyleNonce.CreateWithRandomKey());
+
+// The SPA shell carries the response's style nonce (meta[name=csp-nonce]), so it is rendered
+// rather than sent verbatim (Blocks.Data.Api.Middleware.SpaShell). Read after
+// ApplyFrontendRuntimeSettings filled the runtime placeholders.
+var indexHtmlTemplate = await Blocks.Data.Api.Middleware.SpaShell.ReadTemplateAsync(app.Environment.WebRootPath).ConfigureAwait(false);
+if (indexHtmlTemplate is not null)
+{
+    app.Use((context, next) => Blocks.Data.Api.Middleware.SpaShell.InvokeAsync(context, next, indexHtmlTemplate));
+}
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 // Serve SPA for unmatched routes BEFORE authentication middleware
-var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
-if (File.Exists(indexHtml))
+if (indexHtmlTemplate is not null)
 {
     // Not under the REST routes: there an unmatched path is the router's 404, which gets a problem body below.
-    app.MapFallbackToFile(Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern, "/index.html");
+    // GET and HEAD only, as MapFallbackToFile was, so the router still answers 405/415 for other methods.
+    app.MapFallback(
+            Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern,
+            context => Blocks.Data.Api.Middleware.SpaShell.WriteAsync(context, indexHtmlTemplate))
+        .WithMetadata(Blocks.Data.Api.Middleware.SpaShell.PageMethods);
 }
 
 app.UseMiddleware<RequestContextMiddleware>();

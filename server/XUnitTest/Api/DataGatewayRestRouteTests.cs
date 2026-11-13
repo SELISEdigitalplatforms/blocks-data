@@ -569,8 +569,15 @@ public sealed class DataGatewayRestRoutingTests(DataGatewayRestRoutingTests.Host
                 options.ConstraintMap[SchemaNameRouteConstraint.Name] = typeof(SchemaNameRouteConstraint));
 
             _app = builder.Build();
+            // Same order as Program.cs: the SPA shell is rendered with the response's style nonce.
+            _app.UseMiddleware<SecurityHeadersMiddleware>(
+                Blocks.Data.Api.Security.ContentSecurityPolicy.BuildPolicy([], [], []),
+                Blocks.Data.Api.Security.StyleNonce.CreateWithRandomKey());
+            var template = await SpaShell.ReadTemplateAsync(_webRoot);
+            _app.Use((context, next) => SpaShell.InvokeAsync(context, next, template!));
             _app.UseStaticFiles();
-            _app.MapFallbackToFile(RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern, "/index.html");
+            _app.MapFallback(RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern, context => SpaShell.WriteAsync(context, template!))
+                .WithMetadata(SpaShell.PageMethods);
             _app.UseMiddleware<RestUnsupportedMediaTypeMiddleware>();
             _app.UseRouting();
             _app.MapControllers();

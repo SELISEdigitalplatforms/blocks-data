@@ -1,35 +1,52 @@
+using Blocks.Data.Api.Security;
+
 namespace Blocks.Data.Api.Middleware;
 
 /// <summary>
-/// Browser security headers for SPA + API (OWASP ZAP DAST bar).
+/// Browser security headers for SPA + API (OWASP ZAP DAST bar). The policy is built from
+/// configuration once at startup (<see cref="ContentSecurityPolicy"/>); only its style nonce
+/// varies per response (<see cref="StyleNonce"/>).
 /// </summary>
 public sealed class SecurityHeadersMiddleware
 {
     private readonly RequestDelegate _next;
 
-    // Built once from configuration at startup -- the policy does not vary per request.
+    /// <summary><see cref="HttpContext.Items"/> key for the response's style nonce.</summary>
+    public const string StyleNonceItemKey = "csp-style-nonce";
+
+    // Built once from configuration at startup; only the style nonce varies per response.
     // See Blocks.Data.Api.Security.ContentSecurityPolicy.
     private readonly string _contentSecurityPolicy;
+    private readonly StyleNonce _styleNonces;
 
-    public SecurityHeadersMiddleware(RequestDelegate next, string contentSecurityPolicy)
+    /// <summary>Creates the middleware with the policy built at startup and the nonce source.</summary>
+    public SecurityHeadersMiddleware(RequestDelegate next, string contentSecurityPolicy, StyleNonce styleNonces)
     {
         _next = next;
         _contentSecurityPolicy = contentSecurityPolicy;
+        _styleNonces = styleNonces;
     }
 
+    /// <summary>Sets the headers now and again when the response starts.</summary>
     public async Task InvokeAsync(HttpContext context)
     {
-        Apply(context);
+        // The response's style nonce, stable per browser (see StyleNonce). The SPA shell is
+        // rendered with the same value as the header (SpaShell).
+        var styleNonce = _styleNonces.ForRequest(context);
+        context.Items[StyleNonceItemKey] = styleNonce;
+        var policy = ContentSecurityPolicy.WithStyleNonce(_contentSecurityPolicy, styleNonce);
+
+        Apply(context, policy);
         context.Response.OnStarting(() =>
         {
-            Apply(context);
+            Apply(context, policy);
             return Task.CompletedTask;
         });
 
         await _next(context);
     }
 
-    internal void Apply(HttpContext context)
+    internal static void Apply(HttpContext context, string contentSecurityPolicy)
     {
         var headers = context.Response.Headers;
         var path = context.Request.Path.Value ?? string.Empty;
@@ -42,7 +59,7 @@ public sealed class SecurityHeadersMiddleware
 
         if (!headers.ContainsKey("Content-Security-Policy"))
         {
-            headers["Content-Security-Policy"] = _contentSecurityPolicy;
+            headers["Content-Security-Policy"] = contentSecurityPolicy;
         }
 
         if (!headers.ContainsKey("Cache-Control"))

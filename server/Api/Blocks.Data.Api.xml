@@ -571,6 +571,10 @@
             <summary>
             Uploads a file to local storage.
             </summary>
+            <remarks>
+            The request body may be up to 101 MiB, for files up to the configuration's limit (at most 100 MiB). A larger body
+            is answered 413 with <c>errors.File = request_body_exceeds_maximum_allowed</c> before the file is processed.
+            </remarks>
             <param name="request">The request containing the file stream and metadata for the upload.</param>
             <returns>A response containing the details of the uploaded file.</returns>
         </member>
@@ -807,6 +811,25 @@
         </member>
         <member name="M:BlocksTemplate.Api.GlobalApiRoutePrefixConvention.#ctor(System.String)">
             <summary>Prepends a segment (e.g. <c>api</c>) to every controller’s attribute route template.</summary>
+        </member>
+        <member name="T:Blocks.Data.Api.Filters.RequestBodyTooLargeFilterAttribute">
+            <summary>
+            Answers HTTP 413 with the upload error envelope (<c>{ isSuccess: false, errors: { File: "request_body_exceeds_maximum_allowed" } }</c>)
+            when a form request body is larger than the action's <see cref="T:Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute"/>. The action never runs.
+            </summary>
+            <remarks>
+            Kestrel signals an oversized body by failing the read with a 413 <see cref="T:Microsoft.AspNetCore.Http.BadHttpRequestException"/>. Left to model
+            binding, that read failure is kept only as a model-state message and <c>[ApiController]</c> answers it as a generic 400,
+            so this filter reads the form itself first. It is a resource filter: it runs after the authorization filters that apply
+            the request limits and after the global permission filter, and before model binding, which then reuses the form read
+            here. Any other read failure (a malformed or aborted body) is left to model binding, which answers it as before.
+            </remarks>
+        </member>
+        <member name="F:Blocks.Data.Api.Filters.RequestBodyTooLargeFilterAttribute.ErrorCode">
+            <summary>The error code returned under <c>errors.File</c>.</summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Filters.RequestBodyTooLargeFilterAttribute.OnResourceExecutionAsync(Microsoft.AspNetCore.Mvc.Filters.ResourceExecutingContext,Microsoft.AspNetCore.Mvc.Filters.ResourceExecutionDelegate)">
+            <inheritdoc />
         </member>
         <member name="T:Blocks.Data.Api.Filters.ValidateRequestAttribute">
             <summary>

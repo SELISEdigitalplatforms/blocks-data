@@ -63,7 +63,7 @@ namespace Storage.DomainService.Services
             if (version.ExpectedSizeInBytes is { } expectedSize && metadata.SizeInBytes != expectedSize)
                 return Rejected("actual_size_does_not_match_declared_size", candidateKey);
 
-            if (metadata.SizeInBytes > configuration.GetMaxFileSizeInBytes())
+            if (metadata.SizeInBytes > configuration.GetEffectiveMaxFileSizeInBytes())
                 return Rejected("actual_size_exceeds_maximum_allowed", candidateKey);
 
             if (!string.IsNullOrEmpty(version.ExpectedContentType)

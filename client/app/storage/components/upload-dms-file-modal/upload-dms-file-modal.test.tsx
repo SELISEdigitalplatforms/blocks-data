@@ -280,4 +280,180 @@ describe("UploadDmsFileModal", () => {
       ),
     );
   });
+  describe("upload size limit (blocks-data#441)", () => {
+    const MB = 1024 * 1024;
+
+    /** A file whose reported size is `size` without allocating it. */
+    function sizedFile(name: string, size: number) {
+      const file = new File(["x"], name, { type: "text/plain" });
+      Object.defineProperty(file, "size", { value: size });
+      return file;
+    }
+
+    function selectFiles(...selected: File[]) {
+      const input = document.body.querySelector('input[type="file"]') as HTMLInputElement;
+      fireEvent.change(input, { target: { files: selected } });
+    }
+
+    it("H4: describes the configured 100 MB limit", () => {
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={100 * MB} />);
+      expect(
+        screen.getByText("Add up to 10 files to this directory. Each file can be up to 100 MB."),
+      ).toBeInTheDocument();
+    });
+
+    it("H5: accepts a file of exactly the 100 MB limit and enables Upload", async () => {
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={100 * MB} />);
+      selectFiles(sizedFile("limit.bin", 100 * MB));
+      await waitFor(() => expect(screen.getByText("limit.bin")).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled();
+      expect(showErrorToast).not.toHaveBeenCalled();
+    });
+
+    it("C1: refuses a file one byte over the limit with the size toast and sends no request", async () => {
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={100 * MB} />);
+      selectFiles(sizedFile("over.bin", 100 * MB + 1));
+      await waitFor(() =>
+        expect(showErrorToast).toHaveBeenCalledWith({ errors: "File is too large. Max size is 100MB" }),
+      );
+      expect(screen.queryByText("over.bin")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+      expect(presignedMutate).not.toHaveBeenCalled();
+    });
+
+    it("C3: caps a configured limit above 100 MB at 100 MB in the description and the drop zone", async () => {
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={200 * MB} />);
+      expect(screen.getByText(/Each file can be up to 100 MB\./)).toBeInTheDocument();
+      selectFiles(sizedFile("over.bin", 100 * MB + 1));
+      await waitFor(() =>
+        expect(showErrorToast).toHaveBeenCalledWith({ errors: "File is too large. Max size is 100MB" }),
+      );
+      expect(screen.queryByText("over.bin")).not.toBeInTheDocument();
+    });
+
+    it("keeps the 5 MB default when no limit is configured", () => {
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={0} />);
+      expect(screen.getByText(/Each file can be up to 5 MB\./)).toBeInTheDocument();
+    });
+
+    it("H6: declares the exact size in the presign request and PUTs with the returned headers", async () => {
+      presignedMutate.mockResolvedValue({
+        isSuccess: true,
+        uploadUrl: "https://upload",
+        fileId: "file-1",
+        fileVersionId: "version-1",
+        uploadCompletionRequired: false,
+        requiredHeaders: { "x-ms-blob-type": "BlockBlob" },
+      });
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={100 * MB} />);
+      const file = sizedFile("limit.bin", 100 * MB);
+      selectFiles(file);
+      await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+      await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+      expect(presignedMutate).toHaveBeenCalledWith(expect.objectContaining({ sizeInBytes: 100 * MB }));
+      expect(uploadfileMutate).toHaveBeenCalledWith({
+        url: "https://upload",
+        file,
+        headers: { "x-ms-blob-type": "BlockBlob" },
+      });
+    });
+
+    it("C4: maps a declared-size refusal to an English message naming the file and keeps the dialog open", async () => {
+      presignedMutate.mockResolvedValue({
+        isSuccess: false,
+        errors: { SizeInBytes: "declared_size_exceeds_maximum_allowed" },
+      });
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={100 * MB} />);
+      selectFiles(sizedFile("big.bin", 10));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledTimes(1));
+
+      const { errors } = showErrorToast.mock.calls[0][0] as { errors: string };
+      expect(errors).toBe("big.bin: File is larger than the 100 MB upload limit");
+      expect(errors).not.toContain("declared_size_exceeds_maximum_allowed");
+      expect(uploadfileMutate).not.toHaveBeenCalled();
+      expect(showSuccessToast).not.toHaveBeenCalled();
+      expect(baseProps.onOpenChange).not.toHaveBeenCalledWith(false);
+      expect(screen.getByText("big.bin")).toBeInTheDocument();
+    });
+
+    it("C5: maps a completion size rejection to an English message and does not report success", async () => {
+      presignedMutate.mockResolvedValue({
+        isSuccess: true,
+        uploadUrl: "https://upload",
+        fileId: "file-1",
+        fileVersionId: "version-1",
+        uploadCompletionRequired: true,
+      });
+      completeUploadMutate.mockResolvedValue({
+        verificationStatus: "Rejected",
+        rejectionReason: "actual_size_exceeds_maximum_allowed",
+      });
+      render(<UploadDmsFileModal {...baseProps} maxFileSizeInBytes={100 * MB} />);
+      addFile("small.txt");
+      await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledTimes(1));
+
+      const { errors } = showErrorToast.mock.calls[0][0] as { errors: string };
+      expect(errors).toBe("small.txt: rejected (file is larger than the 100 MB upload limit)");
+      expect(showSuccessToast).not.toHaveBeenCalled();
+      expect(baseProps.onOpenChange).not.toHaveBeenCalledWith(false);
+    });
+
+    it("H12: keeps at most two files in flight, starts them in selection order and reports each outcome", async () => {
+      // A file starts when the dialog reads it for its checksum; it finishes when its PUT (or its refusal) settles.
+      const started: string[] = [];
+      const finish = new Map<string, () => void>();
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const trackedFile = (name: string) => {
+        const file = sizedFile(name, 1);
+        Object.defineProperty(file, "arrayBuffer", {
+          value: () => {
+            started.push(name);
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            return Promise.resolve(new ArrayBuffer(1));
+          },
+        });
+        return file;
+      };
+      presignedMutate.mockImplementation(({ name: fileName }: { name: string }) => {
+        if (fileName === "c.txt") {
+          inFlight -= 1;
+          return Promise.resolve({ isSuccess: false, errors: { Name: "bad name" } });
+        }
+        return Promise.resolve({ isSuccess: true, uploadUrl: "https://upload", fileId: fileName, uploadCompletionRequired: false });
+      });
+      uploadfileMutate.mockImplementation(
+        ({ file }: { file: File }) =>
+          new Promise<void>((resolve) => {
+            finish.set(file.name, () => {
+              inFlight -= 1;
+              resolve();
+            });
+          }),
+      );
+
+      render(<UploadDmsFileModal {...baseProps} />);
+      selectFiles(trackedFile("a.txt"), trackedFile("b.txt"), trackedFile("c.txt"));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+      await waitFor(() => expect(finish.size).toBe(2));
+      expect(started).toEqual(["a.txt", "b.txt"]);
+
+      finish.get("b.txt")!();
+      await waitFor(() => expect(started).toEqual(["a.txt", "b.txt", "c.txt"]));
+      finish.get("a.txt")!();
+
+      await waitFor(() => expect(showSuccessToast).toHaveBeenCalledTimes(1));
+      expect(maxInFlight).toBe(2);
+      expect(showSuccessToast).toHaveBeenCalledWith({ description: "2 file(s) uploaded successfully!" });
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: "c.txt: bad name" });
+    });
+  });
 });

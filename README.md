@@ -141,6 +141,8 @@ A tenant's storage configurations live in its `KeyValueStores` under `storage-co
 
 Blocks OS owns the storage configuration API (list, save, delete). The SPA reads the list from Blocks OS, which returns a status per secret, never a secret value.
 
+Upload size: Blocks Data enforces a configuration's `MaxFileSizeInBytes` (default 5 MiB) capped at 100 MiB on presigned, completed and local/SFTP uploads; `upload-file-to-local-storage` accepts request bodies up to 101 MiB (413 above that) and keeps accepting files up to 15 MiB whatever the configuration.
+
 ## Worker jobs
 
 The Worker hosts two migration jobs. Each does nothing unless its mode variable is set, and both take a Redis lock so only one Worker runs them.

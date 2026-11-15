@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
+using Storage.DomainService.Utilities;
 
 namespace Api.Controllers
 {
@@ -111,11 +112,18 @@ namespace Api.Controllers
         /// <summary>
         /// Uploads a file to local storage.
         /// </summary>
+        /// <remarks>
+        /// The request body may be up to 101 MiB, for files up to the configuration's limit (at most 100 MiB). A larger body
+        /// is answered 413 with <c>errors.File = request_body_exceeds_maximum_allowed</c> before the file is processed.
+        /// </remarks>
         /// <param name="request">The request containing the file stream and metadata for the upload.</param>
         /// <returns>A response containing the details of the uploaded file.</returns>
         [HttpPost("UploadFileToLocalStorage")]
         [HttpPost("upload-file-to-local-storage")]
         [ProtectedEndPoint("blocks-data::file::upload-file-to-local-storage")]
+        [RequestSizeLimit(Constants.LocalUploadMaxRequestBodyInBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = Constants.LocalUploadMaxRequestBodyInBytes)]
+        [RequestBodyTooLargeFilter]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
         {
             return await _fileManagementService.UploadFileToLocalStorageAsync(request);

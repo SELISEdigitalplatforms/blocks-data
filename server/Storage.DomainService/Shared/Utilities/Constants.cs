@@ -16,6 +16,21 @@ namespace Storage.DomainService.Utilities
         public const long DefaultMaxFileSizeInBytes = 5_242_880L;
 
         /// <summary>
+        /// Platform ceiling (100 MiB) on the upload size Blocks Data enforces, whatever a configuration stores. Applied by
+        /// <see cref="Entities.StorageConfigurationExtensions.GetEffectiveMaxFileSizeInBytes"/>.
+        /// </summary>
+        public const long MaxUploadSizeInBytes = 104_857_600L;
+
+        /// <summary>
+        /// File size the local upload endpoint accepted before the 100 MiB change (its former 15 MiB multipart limit). A local
+        /// file up to this size is never refused by configuration, so existing clients keep working.
+        /// </summary>
+        public const long LocalUploadAcceptedSizeInBytes = 15_728_640L;
+
+        /// <summary>Request body and multipart section limit of the local upload endpoint (101 MiB): the ceiling plus room for form framing.</summary>
+        public const long LocalUploadMaxRequestBodyInBytes = 105_906_176L;
+
+        /// <summary>
         /// How long a completion attempt holds its exclusive claim on a Quarantined version. Comfortably
         /// longer than Phase 1's synchronous verification is expected to take, so a crashed attempt's
         /// lease expires and the version becomes retryable well before a legitimate retry would arrive.

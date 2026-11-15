@@ -24,6 +24,13 @@ namespace Storage.DomainService.Entities
             configuration.MaxFileSizeInBytes is > 0 ? configuration.MaxFileSizeInBytes.Value : Constants.DefaultMaxFileSizeInBytes;
 
         /// <summary>
+        /// The upload limit Blocks Data enforces: <see cref="GetMaxFileSizeInBytes"/> capped at <see cref="Constants.MaxUploadSizeInBytes"/>.
+        /// <see cref="GetMaxFileSizeInBytes"/> itself stays uncapped, so Storage.Driver consumers that call it keep their behaviour.
+        /// </summary>
+        public static long GetEffectiveMaxFileSizeInBytes(this StorageConfiguration configuration) =>
+            Math.Min(configuration.GetMaxFileSizeInBytes(), Constants.MaxUploadSizeInBytes);
+
+        /// <summary>
         /// Whether upload completion is required for <paramref name="accessModifier"/>, after dropping any
         /// configured value outside the allowed <see cref="AccessModifier.Public"/>/<see cref="AccessModifier.Private"/> set.
         /// </summary>

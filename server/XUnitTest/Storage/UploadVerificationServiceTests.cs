@@ -125,6 +125,33 @@ public class UploadVerificationServiceTests
     }
 
     [Fact]
+    public async Task H8_VerifyAsync_CandidateAtA100MiBLimit_PassesTheSizeCheckAndVerifies()
+    {
+        const long limit = 104_857_600;
+        var version = NewVersion(new FileVersionOptions { ItemId = "version-1", ExpectedSizeInBytes = limit, ExpectedContentType = "application/pdf" });
+        version.StorageKey = QuarantineKey;
+        SetUpHappyPathCandidate("Verification/", new StorageObjectMetadata { SizeInBytes = limit, ContentType = "application/pdf" });
+
+        var result = await _sut.VerifyAsync(_storageService.Object, DefaultConfiguration(maxFileSizeInBytes: limit), version, UploadSessionId, FileName);
+
+        result.Status.Should().Be(FileVerificationStatus.Verified);
+        result.RejectionReason.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task C7_C2_VerifyAsync_CandidateOverTheCeiling_IsRejectedEvenWhenTheConfigurationAllowsMore()
+    {
+        var version = NewVersion();
+        version.StorageKey = QuarantineKey;
+        SetUpHappyPathCandidate("Verification/", new StorageObjectMetadata { SizeInBytes = 104_857_601, ContentType = "application/pdf" });
+
+        var result = await _sut.VerifyAsync(_storageService.Object, DefaultConfiguration(maxFileSizeInBytes: 209_715_200), version, UploadSessionId, FileName);
+
+        result.IsVerified.Should().BeFalse();
+        result.RejectionReason.Should().Be("actual_size_exceeds_maximum_allowed");
+    }
+
+    [Fact]
     public async Task VerifyAsync_StoredContentTypeDiffersFromDeclaredContentType_Rejects()
     {
         var version = NewVersion(new FileVersionOptions { ItemId = "version-1", ExpectedContentType = "application/pdf" });

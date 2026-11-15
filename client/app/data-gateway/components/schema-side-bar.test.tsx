@@ -1,7 +1,10 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
+import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 
 const useSchemaList = vi.fn();
 
@@ -13,7 +16,12 @@ const { notifyRef } = vi.hoisted(() => ({
 
 let pendingSchemaIds: ReadonlySet<string> = new Set();
 
-vi.mock("../hooks/use-configuration", () => ({
+// The real use-configuration module builds its service's HttpClients at import.
+vi.mock("@/lib/http-client", () => mockHttpClientFactory());
+
+vi.mock("../hooks/use-configuration", async (importOriginal) => ({
+  // The real list refresh, so the tests see exactly which queries an import notification invalidates.
+  refreshSchemaLists: (await importOriginal<typeof import("../hooks/use-configuration")>()).refreshSchemaLists,
   useSchemaList: (...a: unknown[]) => useSchemaList(...a),
   usePendingSchemaIds: () => pendingSchemaIds,
   // For the security page, mounted next to the sidebar in the import-notification tests.
@@ -42,8 +50,34 @@ import SecurityAndPerformance from "./security-and-performance/security-and-perf
 import { showErrorToast } from "@/hooks/use-toast";
 import { resetHandledImportNotifications } from "../utils/schema-import-notification";
 
-function renderSidebar(props: Partial<Parameters<typeof SchemasSidebar>[0]> = {}) {
-  const Wrapper = createWrapper();
+// Cached lists of the current project ("t1") and of another one (§7 examples 1, 2).
+const projectListKeys = [
+  ["schema-list", "", 1, 10, true, "CreatedDate", "t1", ""],
+  ["schema-list", "user", 2, 10, true, "CreatedDate", "t1", "entity"],
+  ["unadapted-change-logs", "t1"],
+  ["security-performance-schema-list", "t1"],
+];
+const otherProjectKeys = [
+  ["schema-list", "", 1, 10, true, "CreatedDate", "other", ""],
+  ["security-performance-schema-list", "other"],
+];
+
+/** A query client seeded with both projects' lists, with invalidateQueries spied on. */
+function seededQueryClient() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  for (const key of [...projectListKeys, ...otherProjectKeys]) client.setQueryData(key, {});
+  const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+  const isInvalidated = (key: unknown[]) => client.getQueryState(key)?.isInvalidated;
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return { Wrapper, invalidateQueries, isInvalidated };
+}
+
+function renderSidebar(
+  props: Partial<Parameters<typeof SchemasSidebar>[0]> = {},
+  Wrapper: (p: { children: ReactNode }) => ReactNode = createWrapper(),
+) {
   const onListQueryChange = vi.fn();
   const onAddSchema = vi.fn();
   render(
@@ -204,9 +238,10 @@ describe("SchemasSidebar", () => {
     expect(screen.getByText("User")).toBeInTheDocument();
   });
 
-  it("invalidates change-log queries on a successful import notification", () => {
+  it("refreshes the project's schema lists and change logs on a successful import notification (H5)", () => {
     useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
-    renderSidebar();
+    const { Wrapper, invalidateQueries, isInvalidated } = seededQueryClient();
+    renderSidebar({}, Wrapper);
 
     expect(notifyRef.current).toBeTypeOf("function");
     act(() => {
@@ -216,17 +251,27 @@ describe("SchemasSidebar", () => {
         },
       });
     });
-    // No throw = handled path executed.
+
+    // The schema lists and security list prove refreshSchemaLists ran (the unscoped call also covers the change logs).
+    for (const key of projectListKeys) expect(isInvalidated(key)).toBe(true);
+    // The existing unscoped change-log invalidation stays; other projects' lists are left alone.
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["unadapted-change-logs"] });
+    expect(isInvalidated(otherProjectKeys[0])).toBe(false);
+    expect(isInvalidated(otherProjectKeys[1])).toBe(false);
+    expect(showErrorToast).not.toHaveBeenCalled();
     expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it("ignores an import notification with no payload", () => {
     useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
-    renderSidebar();
+    const { Wrapper, invalidateQueries } = seededQueryClient();
+    renderSidebar({}, Wrapper);
 
     act(() => {
       notifyRef.current!({ message: {} });
     });
+    // C5: no list refresh.
+    expect(invalidateQueries).not.toHaveBeenCalled();
     expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
@@ -393,9 +438,8 @@ describe("SchemasSidebar", () => {
         notifyRef.all.forEach((listener) => listener(data));
       });
 
-    function renderBothListeners() {
+    function renderBothListeners(Wrapper: (p: { children: ReactNode }) => ReactNode = createWrapper()) {
       useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
-      const Wrapper = createWrapper();
       render(
         <Wrapper>
           <SchemasSidebar onAddSchema={vi.fn()} filterType="all" page={1} pageSize={10} onListQueryChange={vi.fn()} />
@@ -428,10 +472,27 @@ describe("SchemasSidebar", () => {
       expect(showErrorToast).toHaveBeenLastCalledWith({ errors: "Error processing import schema" });
     });
 
-    it("shows no error toast for a successful import", () => {
-      renderBothListeners();
+    it("refreshes no list for a failed import, even with both listeners mounted (C4)", () => {
+      const { Wrapper, invalidateQueries } = seededQueryClient();
+      renderBothListeners(Wrapper);
+      deliver(failed({ CorrelationId: "c-5", Errors: ["x"] }));
+
+      expect(showErrorToast).toHaveBeenCalledTimes(1);
+      expect(invalidateQueries).not.toHaveBeenCalled();
+    });
+
+    it("shows no error toast for a successful import, and each listener refreshes the project's lists once (C6, P2)", () => {
+      const { Wrapper, invalidateQueries, isInvalidated } = seededQueryClient();
+      renderBothListeners(Wrapper);
       deliver({ message: { denormalizedPayload: JSON.stringify({ IsSuccess: true, Errors: [], CorrelationId: "c-4" }) } });
+
       expect(showErrorToast).not.toHaveBeenCalled();
+      for (const key of projectListKeys) expect(isInvalidated(key)).toBe(true);
+      expect(isInvalidated(otherProjectKeys[0])).toBe(false);
+      // One unscoped change-log invalidation and one schema-list refresh per listener.
+      const calls = invalidateQueries.mock.calls.map(([filters]) => filters);
+      expect(calls.filter((f) => typeof f?.predicate === "function")).toHaveLength(2);
+      expect(calls.filter((f) => f?.queryKey?.length === 1 && f.queryKey[0] === "unadapted-change-logs")).toHaveLength(2);
     });
   });
 });

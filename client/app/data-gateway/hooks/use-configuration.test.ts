@@ -371,6 +371,180 @@ describe("use-configuration hooks", () => {
     });
   });
 
+  // ─── Schema-list refresh after access-level saves and imports (#438) ─────────
+
+  describe("schema-list refresh after access-level saves and imports", () => {
+    // Two filter variants of the current project's list, and one of another project (§7 examples 1, 2).
+    const listKey = ["schema-list", "", 1, 10, true, "CreatedDate", "t1", ""];
+    const filteredListKey = ["schema-list", "user", 2, 10, true, "CreatedDate", "t1", "entity"];
+    const otherProjectListKey = ["schema-list", "", 1, 10, true, "CreatedDate", "other", ""];
+    const changeLogsKey = ["unadapted-change-logs", "t1"];
+    const securityListKey = ["security-performance-schema-list", "t1"];
+    const policyKey = ["get-policy-data", "t1"];
+    const detailsKey = ["schema-details", "s1", "t1"];
+    const seededKeys = [listKey, filteredListKey, otherProjectListKey, changeLogsKey, securityListKey, policyKey, detailsKey];
+
+    const setup = (seed: unknown[][] = seededKeys) => {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      });
+      for (const key of seed) client.setQueryData(key, {});
+      const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client }, children);
+      return { client, invalidateQueries, wrapper };
+    };
+    const isInvalidated = (client: QueryClient, key: unknown[]) =>
+      client.getQueryState(key)?.isInvalidated;
+    /** The predicates passed to invalidateQueries, i.e. the invalidateSchemaList calls. */
+    const predicatesOf = (invalidateQueries: ReturnType<typeof setup>["invalidateQueries"]) =>
+      invalidateQueries.mock.calls
+        .map(([filters]) => filters?.predicate)
+        .filter((predicate): predicate is NonNullable<typeof predicate> => typeof predicate === "function");
+    const queryWithKey = (queryKey: unknown[]) => ({ queryKey }) as never;
+
+    beforeEach(() => {
+      // Drop any queued list responses a previous test left unused.
+      vi.mocked(configurationService.getSchemaList).mockReset();
+    });
+
+    const accessCases = [
+      {
+        name: "useSetRowColumnPermission",
+        criterion: "H1",
+        method: "setRowColumnPermissions" as const,
+        hook: function useSetRowColumnPermissionForS1() {
+          return useSetRowColumnPermission("s1");
+        },
+      },
+      {
+        name: "useSetDataAccess",
+        criterion: "H2",
+        method: "setDataAccess" as const,
+        hook: function useSetDataAccessForS1() {
+          return useSetDataAccess("s1");
+        },
+      },
+    ];
+
+    accessCases.forEach(({ name, criterion, method, hook }) => {
+      it(`${name} refreshes every schema list of the project and keeps its other invalidations (${criterion}, H4, C1)`, async () => {
+        vi.mocked(configurationService[method]).mockResolvedValue({ isSuccess: true } as never);
+        const { client, wrapper } = setup();
+        const { result } = renderHook(hook, { wrapper });
+
+        await act(() => result.current.mutateAsync({} as never));
+
+        expect(isInvalidated(client, listKey)).toBe(true);
+        expect(isInvalidated(client, filteredListKey)).toBe(true);
+        expect(isInvalidated(client, otherProjectListKey)).toBe(false);
+        for (const key of [changeLogsKey, securityListKey, policyKey, detailsKey]) {
+          expect(isInvalidated(client, key)).toBe(true);
+        }
+      });
+
+      it(`${name} matches the security list only through its own invalidation (C2)`, async () => {
+        vi.mocked(configurationService[method]).mockResolvedValue({ isSuccess: true } as never);
+        const { invalidateQueries, wrapper } = setup();
+        const { result } = renderHook(hook, { wrapper });
+
+        await act(() => result.current.mutateAsync({} as never));
+
+        const predicates = predicatesOf(invalidateQueries);
+        expect(predicates).toHaveLength(1);
+        expect(predicates[0](queryWithKey(listKey))).toBe(true);
+        expect(predicates[0](queryWithKey(securityListKey))).toBe(false);
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: securityListKey });
+      });
+
+      it(`${name} invalidates nothing when the save fails (C3)`, async () => {
+        vi.mocked(configurationService[method]).mockRejectedValue(new Error("save failed"));
+        const { client, invalidateQueries, wrapper } = setup();
+        const { result } = renderHook(hook, { wrapper });
+
+        await act(() => expect(result.current.mutateAsync({} as never)).rejects.toThrow("save failed"));
+
+        expect(invalidateQueries).not.toHaveBeenCalled();
+        for (const key of seededKeys) expect(isInvalidated(client, key)).toBe(false);
+      });
+    });
+
+    it("useImportSchemaFile refreshes every schema list of the project before its two other invalidations (H3, H4, C1, C2)", async () => {
+      vi.mocked(configurationService.importSchemaFile).mockResolvedValue({ isSuccess: true } as never);
+      const { client, invalidateQueries, wrapper } = setup();
+      const { result } = renderHook(() => useImportSchemaFile({} as never), { wrapper });
+
+      await act(() => result.current.mutateAsync({} as never));
+
+      expect(isInvalidated(client, listKey)).toBe(true);
+      expect(isInvalidated(client, filteredListKey)).toBe(true);
+      expect(isInvalidated(client, otherProjectListKey)).toBe(false);
+      expect(isInvalidated(client, changeLogsKey)).toBe(true);
+      expect(isInvalidated(client, securityListKey)).toBe(true);
+      // Schema details and policies are not part of an import's refresh.
+      expect(isInvalidated(client, detailsKey)).toBe(false);
+      expect(isInvalidated(client, policyKey)).toBe(false);
+
+      const [first, ...rest] = invalidateQueries.mock.calls.map(([filters]) => filters);
+      expect(typeof first?.predicate).toBe("function");
+      expect(first?.predicate?.(queryWithKey(securityListKey))).toBe(false);
+      expect(rest).toEqual([{ queryKey: changeLogsKey }, { queryKey: securityListKey }]);
+    });
+
+    it("useImportSchemaFile invalidates nothing when the upload fails (C3)", async () => {
+      vi.mocked(configurationService.importSchemaFile).mockRejectedValue(new Error("upload failed"));
+      const { client, invalidateQueries, wrapper } = setup();
+      const { result } = renderHook(() => useImportSchemaFile({} as never), { wrapper });
+
+      await act(() => expect(result.current.mutateAsync({} as never)).rejects.toThrow("upload failed"));
+
+      expect(invalidateQueries).not.toHaveBeenCalled();
+      for (const key of seededKeys) expect(isInvalidated(client, key)).toBe(false);
+    });
+
+    it("refetches the mounted list once with the new data and only marks an unmounted one stale (H7, H11, C9)", async () => {
+      const before = { data: { items: [{ itemId: "a" }], totalCount: 1 } };
+      const after = { data: { items: [{ itemId: "a" }, { itemId: "b" }], totalCount: 2 } };
+      vi.mocked(configurationService.getSchemaList)
+        .mockResolvedValueOnce(before as never)
+        .mockResolvedValueOnce(after as never);
+      vi.mocked(configurationService.setRowColumnPermissions).mockResolvedValue({ isSuccess: true } as never);
+      const { client, wrapper } = setup([filteredListKey, otherProjectListKey]);
+      const { result } = renderHook(
+        () => ({ list: useSchemaList({ projectKey: "t1" }), save: useSetRowColumnPermission("s1") }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.list.data).toEqual(before));
+
+      await act(() => result.current.save.mutateAsync({} as never));
+
+      await waitFor(() => expect(result.current.list.data).toEqual(after));
+      expect(configurationService.getSchemaList).toHaveBeenCalledTimes(2);
+      expect(isInvalidated(client, filteredListKey)).toBe(true);
+      expect(client.getQueryState(filteredListKey)?.fetchStatus).toBe("idle");
+      expect(isInvalidated(client, otherProjectListKey)).toBe(false);
+    });
+
+    it("ends with the latest response when two import listeners refresh one after the other (C6, P2)", async () => {
+      const responses = [1, 2, 3].map((n) => ({ data: { items: [], totalCount: n } }));
+      responses.forEach((response) =>
+        vi.mocked(configurationService.getSchemaList).mockResolvedValueOnce(response as never),
+      );
+      const { client, wrapper } = setup([]);
+      const { result } = renderHook(() => useSchemaList({ projectKey: "t1" }), { wrapper });
+      await waitFor(() => expect(result.current.data).toEqual(responses[0]));
+
+      act(() => {
+        refreshSchemaLists(client, "t1");
+        refreshSchemaLists(client, "t1");
+      });
+
+      await waitFor(() => expect(result.current.data).toEqual(responses[2]));
+      expect(configurationService.getSchemaList).toHaveBeenCalledTimes(3);
+      expect(result.current.isError).toBe(false);
+    });
+  });
+
   describe("useGetMockData", () => {
     it("should fetch mock data", async () => {
       vi.mocked(configurationService.getMockData).mockResolvedValue({
@@ -1110,7 +1284,8 @@ describe("use-configuration hooks", () => {
       expect(client.getQueryData(rawKey)).toEqual(introspectionResult);
     });
 
-    // H3, H4 (E4)
+    // H3, H4 (E4); which schema lists the import refreshes is covered in
+    // "schema-list refresh after access-level saves and imports" (#438).
     it("invalidates only the schema lists and pending changes on import", async () => {
       const { client, wrapper } = setup();
       const invalidateQueries = vi.spyOn(client, "invalidateQueries");
@@ -1119,7 +1294,7 @@ describe("use-configuration hooks", () => {
       await act(() => result.current.importFile.mutateAsync({} as never));
 
       expect(invalidateQueries.mock.calls).toEqual([
-        [{ queryKey: ["schema-list", "t1"] }],
+        [{ predicate: expect.any(Function) }],
         [{ queryKey: ["unadapted-change-logs", "t1"] }],
         [{ queryKey: ["security-performance-schema-list", "t1"] }],
       ]);

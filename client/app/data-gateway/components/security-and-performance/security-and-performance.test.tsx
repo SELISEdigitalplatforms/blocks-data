@@ -1,13 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
+import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 
 const useSecurityAndPerformanceSchemaList = vi.fn();
 const createSchema = vi.fn();
 const useCreateSchema = vi.fn(() => ({ mutateAsync: createSchema }));
 
-vi.mock("@/data-gateway/hooks/use-configuration", () => ({
+// The real use-configuration module builds its service's HttpClients at import.
+vi.mock("@/lib/http-client", () => mockHttpClientFactory());
+
+vi.mock("@/data-gateway/hooks/use-configuration", async (importOriginal) => ({
+  // The real list refresh, so the tests see exactly which queries an import notification invalidates.
+  refreshSchemaLists: (await importOriginal<typeof import("@/data-gateway/hooks/use-configuration")>())
+    .refreshSchemaLists,
   useSecurityAndPerformanceSchemaList: (...a: unknown[]) =>
     useSecurityAndPerformanceSchemaList(...a),
   useCreateSchema: (...a: unknown[]) => useCreateSchema(...a),
@@ -57,8 +66,31 @@ vi.mock("./pagination", () => ({
 import SecurityAndPerformance from "./security-and-performance";
 import { resetHandledImportNotifications } from "../../utils/schema-import-notification";
 
-function renderPanel(props = {}) {
-  const Wrapper = createWrapper();
+// Cached lists of the current project ("t1") and of another one.
+const projectListKeys = [
+  ["schema-list", "", 1, 10, true, "CreatedDate", "t1", ""],
+  ["schema-list", "user", 2, 10, true, "CreatedDate", "t1", "entity"],
+  ["unadapted-change-logs", "t1"],
+  ["security-performance-schema-list", "t1"],
+];
+const otherProjectKeys = [
+  ["schema-list", "", 1, 10, true, "CreatedDate", "other", ""],
+  ["security-performance-schema-list", "other"],
+];
+
+/** A query client seeded with both projects' lists, with invalidateQueries spied on. */
+function seededQueryClient() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  for (const key of [...projectListKeys, ...otherProjectKeys]) client.setQueryData(key, {});
+  const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+  const isInvalidated = (key: unknown[]) => client.getQueryState(key)?.isInvalidated;
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return { Wrapper, invalidateQueries, isInvalidated };
+}
+
+function renderPanel(props = {}, Wrapper: (p: { children: ReactNode }) => ReactNode = createWrapper()) {
   const handlers = {
     onSchemaRowClick: vi.fn(),
     onNavigateToSchemas: vi.fn(),
@@ -238,9 +270,10 @@ describe("SecurityAndPerformance", () => {
   });
 
   it("shows one toast with the reasons for a failed import notification", () => {
-    // H8
+    // H8; C4: no list refresh
     useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
-    renderPanel();
+    const { Wrapper, invalidateQueries } = seededQueryClient();
+    renderPanel({}, Wrapper);
     notifHandler?.({
       message: {
         denormalizedPayload: {
@@ -256,6 +289,7 @@ describe("SecurityAndPerformance", () => {
       title: "Schema import failed:",
       errors: ["Document[0]: CollectionName 'sb_Orders' is already used by schema 'Order'."],
     });
+    expect(invalidateQueries).not.toHaveBeenCalled();
   });
 
   it("changes page and page size through the pagination controls", async () => {
@@ -268,29 +302,42 @@ describe("SecurityAndPerformance", () => {
     expect(screen.getByText("Security Assessment")).toBeInTheDocument();
   });
 
-  it("invalidates change-log queries on a successful import notification", () => {
+  it("refreshes the project's schema lists and change logs on a successful import notification (H6)", () => {
     useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
-    renderPanel();
+    const { Wrapper, invalidateQueries, isInvalidated } = seededQueryClient();
+    renderPanel({}, Wrapper);
     notifHandler?.({
       message: { denormalizedPayload: JSON.stringify({ Message: { IsSuccess: true } }) },
     });
-    // No throw and no error toast on the happy path.
+
+    // The schema lists and security list prove refreshSchemaLists ran (the unscoped call also covers the change logs).
+    for (const key of projectListKeys) expect(isInvalidated(key)).toBe(true);
+    // The existing unscoped change-log invalidation stays; other projects' lists are left alone.
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["unadapted-change-logs"] });
+    expect(isInvalidated(otherProjectKeys[0])).toBe(false);
+    expect(isInvalidated(otherProjectKeys[1])).toBe(false);
     expect(showErrorToast).not.toHaveBeenCalled();
   });
 
   it("ignores an import notification without a payload", () => {
+    // C5: no toast and no list refresh
     useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
-    renderPanel();
+    const { Wrapper, invalidateQueries } = seededQueryClient();
+    renderPanel({}, Wrapper);
     notifHandler?.({ message: {} });
     expect(showErrorToast).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
   });
 
   it("shows an error toast when the import notification payload is malformed", () => {
+    // C5: the existing toast and no list refresh
     useSecurityAndPerformanceSchemaList.mockReturnValue({ data: listData, isLoading: false });
-    renderPanel();
+    const { Wrapper, invalidateQueries } = seededQueryClient();
+    renderPanel({}, Wrapper);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     notifHandler?.({ message: { denormalizedPayload: "{not-json" } });
     expect(showErrorToast).toHaveBeenCalledWith({ errors: "Error processing import schema" });
+    expect(invalidateQueries).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
   // ── Phase 7: exposure, filters and risk order ───────────────────────────

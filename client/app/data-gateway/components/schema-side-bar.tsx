@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, CloudUpload, Database, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { usePendingSchemaIds, useSchemaList } from "../hooks/use-configuration";
+import { refreshSchemaLists, usePendingSchemaIds, useSchemaList } from "../hooks/use-configuration";
 import { ISchemaDetails } from "../models/data-service";
 import { schemaExposure } from "../utils/schema-exposure";
 import { parseSchemaImportNotification, showSchemaImportFailure } from "../utils/schema-import-notification";
@@ -136,6 +136,8 @@ export default function SchemasSidebar({
           queryClient.invalidateQueries({
             queryKey: ["unadapted-change-logs"],
           });
+          // The Worker has now written the imported schemas, so the lists can show them.
+          refreshSchemaLists(queryClient, projectKey);
         } else if (message.IsSuccess === false) {
           showSchemaImportFailure(message);
         }
@@ -146,7 +148,7 @@ export default function SchemasSidebar({
         });
       }
     },
-    [queryClient, t],
+    [queryClient, t, projectKey],
   );
 
   useNotificationListener("schema-import", handleImportSchemaNotification);

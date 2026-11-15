@@ -97,13 +97,18 @@ export type RuleSetLine = {
  */
 export function ruleSetLines(policy: IPolicyItem): RuleSetLine[] {
   const walk = (group: IPolicyRuleGroup, depth: number): RuleSetLine[] => {
-    const joiner = group.logicalOperator === LOGICAL_OPERATOR.AND ? "and" : "or";
+    const joiner =
+      group.logicalOperator === LOGICAL_OPERATOR.AND
+        ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.AND")
+        : tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.OR");
+    // Only the set's first line reads "when"; a nested group's first line has no lead.
+    const firstLead = depth === 0 ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.WHEN") : "";
     const items = [
       ...(group.rules ?? []).map((rule) => ({ rule })),
       ...(group.nestedGroups ?? []).map((nested) => ({ nested })),
     ];
     return items.flatMap((item, index): RuleSetLine[] => {
-      const lead = index === 0 ? (depth === 0 ? "when" : "") : joiner;
+      const lead = index === 0 ? firstLead : joiner;
       if ("rule" in item) {
         return [{ lead, text: rulePhrase(item.rule), depth, kind: "rule" }];
       }
@@ -166,7 +171,7 @@ export function accessEffect({
   if (tier === "inherited") {
     return {
       heading: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.INHERITED"),
-      text: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.FOLLOWS_WHATEVER_THE_SCHEMA_ALLOWS_FOR", { value: verb === "read" ? "reading" : verb }),
+      text: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.FOLLOWS_WHATEVER_THE_SCHEMA_ALLOWS_FOR", { value: verb === "read" ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.READING") : verb }),
       risk: "inherited",
     };
   }

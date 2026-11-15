@@ -395,9 +395,7 @@ export const useSetDataAccess = (schemaId?: string) => {
   return useMutation({
     mutationFn: configurationService.setDataAccess,
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["schema-list", projectKey],
-      });
+      invalidateSchemaList(queryClient, projectKey);
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });
@@ -423,9 +421,7 @@ export const useSetRowColumnPermission = (schemaId?: string) => {
   return useMutation({
     mutationFn: configurationService.setRowColumnPermissions,
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["schema-list", projectKey],
-      });
+      invalidateSchemaList(queryClient, projectKey);
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });
@@ -881,9 +877,7 @@ export const useImportSchemaFile = (_payload: IImportFile) => {
       // No introspection refresh here: an import only queues draft changes, so the schema the
       // gateway serves is unchanged. Publish and rollback refresh it (refreshServedSchema), and
       // the entries they seed have no queryFn, so refetching them would fail with "Missing queryFn".
-      await queryClient.invalidateQueries({
-        queryKey: ["schema-list", projectKey],
-      });
+      await invalidateSchemaList(queryClient, projectKey);
       await queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });

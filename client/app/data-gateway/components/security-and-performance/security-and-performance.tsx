@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import {
+  refreshSchemaLists,
   useCreateSchema,
   useSecurityAndPerformanceSchemaList,
 } from "@/data-gateway/hooks/use-configuration";
@@ -82,6 +83,8 @@ const SecurityAndPerformance = ({
         if (!message) return;
         if (message.IsSuccess) {
           queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+          // The Worker has now written the imported schemas, so the lists can show them.
+          refreshSchemaLists(queryClient, projectKey);
         } else if (message.IsSuccess === false) {
           showSchemaImportFailure(message);
         }
@@ -90,7 +93,7 @@ const SecurityAndPerformance = ({
         showErrorToast({ errors: t("SECURITY_AND_PERFORMANCE.ERROR_PROCESSING_IMPORT_SCHEMA") });
       }
     },
-    [queryClient, t],
+    [queryClient, t, projectKey],
   );
 
   useNotificationListener("schema-import", handleImportSchemaNotification);

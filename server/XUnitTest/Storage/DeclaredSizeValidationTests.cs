@@ -84,4 +84,33 @@ public class DeclaredSizeValidationTests
         ValidateDeclaredSize(0, configuration).Should().BeNull();
         ValidateDeclaredSize(-1, configuration).Should().BeNull();
     }
+    // blocks-data#441: H7, C6, C2 (presign)
+
+    [Fact]
+    public void H7_DeclaredSize_AtA100MiBConfiguredMaximum_IsAccepted()
+    {
+        var configuration = new StorageConfiguration { Name = "Default", MaxFileSizeInBytes = 104_857_600 };
+
+        ValidateDeclaredSize(104_857_600, configuration).Should().BeNull();
+    }
+
+    [Fact]
+    public void C6_DeclaredSize_OneByteOverA100MiBConfiguredMaximum_IsRejected()
+    {
+        var configuration = new StorageConfiguration { Name = "Default", MaxFileSizeInBytes = 104_857_600 };
+
+        var result = ValidateDeclaredSize(104_857_601, configuration);
+
+        result!.IsSuccess.Should().BeFalse();
+        result.Errors.Should().Equal(new Dictionary<string, string> { ["SizeInBytes"] = "declared_size_exceeds_maximum_allowed" });
+    }
+
+    [Fact]
+    public void C2_DeclaredSize_AboveTheCeiling_IsRejectedEvenWhenTheConfigurationAllowsMore()
+    {
+        var configuration = new StorageConfiguration { Name = "Default", MaxFileSizeInBytes = 209_715_200 };
+
+        ValidateDeclaredSize(104_857_600, configuration).Should().BeNull();
+        ValidateDeclaredSize(104_857_601, configuration)!.Errors!["SizeInBytes"].Should().Be("declared_size_exceeds_maximum_allowed");
+    }
 }

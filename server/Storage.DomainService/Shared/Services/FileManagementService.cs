@@ -374,10 +374,23 @@ namespace Storage.DomainService.Services
             IsSuccess = true
         };
 
+        /// <summary>
+        /// The largest file the local upload path accepts: the effective limit, but never less than the
+        /// <see cref="Constants.LocalUploadAcceptedSizeInBytes"/> the endpoint accepted before, so no existing client is newly refused.
+        /// </summary>
+        internal static long LocalUploadMaxFileSizeInBytes(StorageConfiguration configuration) =>
+            Math.Max(configuration.GetEffectiveMaxFileSizeInBytes(), Constants.LocalUploadAcceptedSizeInBytes);
+
+        /// <summary>Refuses a local upload whose server-observed file length is over <see cref="LocalUploadMaxFileSizeInBytes"/>, before any provider call or write.</summary>
+        private LocalStorageUploadResponse? ValidateLocalFileSize(LocalStorageUploadRequest request, StorageConfiguration configuration) =>
+            request.File.Length > LocalUploadMaxFileSizeInBytes(configuration)
+                ? CreateErrorResponse<LocalStorageUploadResponse>("File", "actual_size_exceeds_maximum_allowed")
+                : null;
+
         /// <summary>Rejects a declared size that already exceeds the configured maximum, before any provider call is made.</summary>
         private GetPreSignedUrlForUploadResponse? ValidateDeclaredSize(GetPreSignedUrlForUploadRequest request, StorageConfiguration configuration)
         {
-            if (request.SizeInBytes is > 0 && request.SizeInBytes.Value > configuration.GetMaxFileSizeInBytes())
+            if (request.SizeInBytes is > 0 && request.SizeInBytes.Value > configuration.GetEffectiveMaxFileSizeInBytes())
             {
                 return CreateErrorResponse<GetPreSignedUrlForUploadResponse>(nameof(request.SizeInBytes), "declared_size_exceeds_maximum_allowed");
             }
@@ -1083,14 +1096,18 @@ namespace Storage.DomainService.Services
 
         private async Task<LocalStorageUploadResponse> HandleExistingFileForLocalStorageAsync(LocalStorageUploadRequest request, File existingFile)
         {
-            var latestFileVersionNumber = await _versionRepository.GetLatestFileVersionNumberAsync(existingFile.ItemId);
-            var newFileVersion = CreateNewFileVersion(existingFile.ItemId, latestFileVersionNumber);
-
             var configuration = await GetLocalStorageConfiguration(request.ConfigurationName);
             if (configuration == null)
             {
                 return CreateErrorResponse<LocalStorageUploadResponse>("Configuration", ConfigurationNotFound);
             }
+
+            if (ValidateLocalFileSize(request, configuration) is { } sizeError)
+                return sizeError;
+
+            // Taking the next version number increments the file's version counter, so it waits until the upload is allowed.
+            var latestFileVersionNumber = await _versionRepository.GetLatestFileVersionNumberAsync(existingFile.ItemId);
+            var newFileVersion = CreateNewFileVersion(existingFile.ItemId, latestFileVersionNumber);
 
             var storageServiceProvider = GetStorageService(configuration);
             var context = BlocksContext.GetContext();
@@ -1125,6 +1142,9 @@ namespace Storage.DomainService.Services
             {
                 return CreateErrorResponse<LocalStorageUploadResponse>("Configuration", ConfigurationNotFound);
             }
+
+            if (ValidateLocalFileSize(request, configuration) is { } sizeError)
+                return sizeError;
 
             var file = await CreateNewFileAsync(request);
             file.ConfigurationName = configuration.Name;

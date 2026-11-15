@@ -45,6 +45,53 @@ type StorageAccessModifier = (typeof STORAGE_ACCESS_OPTIONS)[number]["value"];
 /** Matches `Constants.DefaultMaxFileSizeInBytes` server-side; used until the configured value is available. */
 const DEFAULT_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
+/** Matches `Constants.MaxUploadSizeInBytes` server-side: no configuration raises the upload limit above 100 MB. */
+const MAX_UPLOAD_SIZE_CEILING_BYTES = 100 * 1024 * 1024;
+
+/** Files hashed and uploaded at once. Each in-flight file holds its whole content in memory while it is hashed. */
+const MAX_FILES_IN_FLIGHT = 2;
+
+/** Server codes for a file over the effective limit: refused at presign, or rejected at completion. */
+const DECLARED_SIZE_EXCEEDS_MAXIMUM = "declared_size_exceeds_maximum_allowed";
+const ACTUAL_SIZE_EXCEEDS_MAXIMUM = "actual_size_exceeds_maximum_allowed";
+
+/** The configured limit, or the documented default, capped at the platform ceiling. */
+const effectiveMaxFileSize = (maxFileSizeInBytes?: number): number =>
+  Math.min(
+    maxFileSizeInBytes && maxFileSizeInBytes > 0 ? maxFileSizeInBytes : DEFAULT_MAX_FILE_SIZE_BYTES,
+    MAX_UPLOAD_SIZE_CEILING_BYTES,
+  );
+
+/** Whether a rejected pre-signed request was refused because the declared size is over the limit. */
+const isDeclaredSizeRefusal = (errors: unknown): boolean =>
+  !!errors && typeof errors === "object" && (errors as Record<string, unknown>).SizeInBytes === DECLARED_SIZE_EXCEEDS_MAXIMUM;
+
+/**
+ * Runs `task` for every item with at most `limit` running at once, starting them in order. Like
+ * `Promise.allSettled`, it never rejects and keeps each result at its item's index.
+ */
+const settleWithLimit = async <T, R>(
+  items: readonly T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> => {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let nextIndex = 0;
+  const runNext = async (): Promise<void> => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = { status: "fulfilled", value: await task(items[index]) };
+      } catch (error_) {
+        results[index] = { status: "rejected", reason: error_ };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+  return results;
+};
+
 /** The first non-empty message in a rejected pre-signed request's `errors` (for example the server's `Name` rule), if any. */
 const firstServerError = (errors: unknown): string | undefined => {
   if (!errors || typeof errors !== "object") return undefined;
@@ -98,7 +145,8 @@ export const UploadDmsFileModal = ({
   const [objectAccessLevel, setObjectAccessLevel] = useState("");
   const [accessModifier, setAccessModifier] = useState<StorageAccessModifier>("Private");
 
-  const maxSize = maxFileSizeInBytes && maxFileSizeInBytes > 0 ? maxFileSizeInBytes : DEFAULT_MAX_FILE_SIZE_BYTES;
+  const maxSize = effectiveMaxFileSize(maxFileSizeInBytes);
+  const maxSizeInMb = Math.round(maxSize / 1024 / 1024);
 
   const { mutateAsync: presignedMutate } = useGetPreSignedUrlForUpload();
   const { mutateAsync: uploadfileMutate } = useUploadFile();
@@ -139,6 +187,9 @@ export const UploadDmsFileModal = ({
 
     const presignedUrlResponse = await presignedMutate(payload);
     if (!presignedUrlResponse.isSuccess) {
+      if (isDeclaredSizeRefusal(presignedUrlResponse.errors)) {
+        throw new Error(t("UPLOAD_DMS_FILE_MODAL.FILE_EXCEEDS_SIZE_LIMIT", { size: maxSizeInMb }));
+      }
       throw new Error(firstServerError(presignedUrlResponse.errors) ?? t("UPLOAD_DMS_FILE_MODAL.FAILED_TO_GET_UPLOAD_URL"));
     }
 
@@ -169,10 +220,17 @@ export const UploadDmsFileModal = ({
     return { name: file.name, status: "rejected", reason: completion.rejectionReason };
   };
 
+  const rejectionMessage = (reason?: string | null): string => {
+    if (reason === ACTUAL_SIZE_EXCEEDS_MAXIMUM) {
+      return t("UPLOAD_DMS_FILE_MODAL.REJECTED_FILE_EXCEEDS_SIZE_LIMIT", { size: maxSizeInMb });
+    }
+    return reason ? t("UPLOAD_DMS_FILE_MODAL.REJECTED_REASON", { reason }) : t("UPLOAD_DMS_FILE_MODAL.REJECTED");
+  };
+
   const uploadFileHandler = async () => {
     setIsUploading(true);
     try {
-      const settled = await Promise.allSettled(files.map(processFile));
+      const settled = await settleWithLimit(files, MAX_FILES_IN_FLIGHT, processFile);
 
       // Every file is attempted independently: one file's rejection or failure must not hide
       // another file's success, and every outcome is reported.
@@ -195,11 +253,7 @@ export const UploadDmsFileModal = ({
       if (rejected.length > 0) {
         showErrorToast({
           errors: rejected
-            .map((o) =>
-              o.reason
-                ? `${o.name}: ${t("UPLOAD_DMS_FILE_MODAL.REJECTED_REASON", { reason: o.reason })}`
-                : `${o.name}: ${t("UPLOAD_DMS_FILE_MODAL.REJECTED")}`,
-            )
+            .map((o) => `${o.name}: ${rejectionMessage(o.status === "rejected" ? o.reason : undefined)}`)
             .join(", "),
         });
       }
@@ -259,7 +313,7 @@ export const UploadDmsFileModal = ({
             <div className="space-y-1">
               <DialogTitle>{t("UPLOAD_DMS_FILE_MODAL.UPLOAD_FILE")}</DialogTitle>
               <DialogDescription>
-                {t("UPLOAD_DMS_FILE_MODAL.ADD_UP_TO_10_FILES" , { size: Math.round(maxSize / 1024 / 1024) })}
+                {t("UPLOAD_DMS_FILE_MODAL.ADD_UP_TO_10_FILES", { size: maxSizeInMb })}
               </DialogDescription>
             </div>
           </div>

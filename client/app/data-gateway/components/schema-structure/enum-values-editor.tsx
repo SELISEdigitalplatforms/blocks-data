@@ -28,7 +28,7 @@ const SEPARATORS = /[\s,]+/;
 function validate(value: string, others: string[]): string | null {
   if (value.length > 100) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ENUM_VALUES_EDITOR.VALUE_MUST_BE_1_100_CHARACTERS");
   if (!SCHEMA_NAME_ALLOWED_PATTERN.test(value)) {
-    return "Only letters, numbers, and '_'; cannot start with a number.";
+    return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ENUM_VALUES_EDITOR.ONLY_LETTERS_NUMBERS_AND_CANNOT");
   }
   if (others.includes(value)) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ENUM_VALUES_EDITOR.ALREADY_ADDED");
   return null;

@@ -8,8 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * Shared spies referenced inside hoisted vi.mock factories.
  */
-const { mutateAsync, showSuccessToast, showErrorToast } = vi.hoisted(() => ({
+const { mutateAsync, saveState, showSuccessToast, showErrorToast } = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
+  /** What useUpdateSchemaStructure reports as `isPending`: true while a confirmed save is in flight. */
+  saveState: { isPending: false },
   showSuccessToast: vi.fn(),
   showErrorToast: vi.fn(),
 }));
@@ -55,7 +57,7 @@ vi.mock("../hooks/use-configuration", async (importOriginal) => {
   isSchemaNotFound: actual.isSchemaNotFound,
   removeSchemaDetails: actual.removeSchemaDetails,
   refreshSchemaLists: actual.refreshSchemaLists,
-  useUpdateSchemaStructure: () => ({ mutateAsync, isPending: false }),
+  useUpdateSchemaStructure: () => ({ mutateAsync, isPending: saveState.isPending }),
   useRawIntrospectionQuery: () => ({ data: undefined }),
   usePendingSchemaIds: () => new Set<string>(),
   useSchemaList: () => ({
@@ -299,6 +301,7 @@ describe("SchemaStructureTable", () => {
   beforeEach(() => {
     queryClient = new QueryClient();
     mutateAsync.mockReset();
+    saveState.isPending = false;
     showSuccessToast.mockReset();
     showErrorToast.mockReset();
   });
@@ -578,7 +581,26 @@ describe("SchemaStructureTable", () => {
     expect(onSchemaGone).not.toHaveBeenCalled();
   });
 
-  it("shows the server errors of any other HttpError and keeps the unsaved rows (H12, C11)", async () => {
+  // The save endpoint's real validation body: HttpError.errors is the FluentValidation list itself.
+  it("says what the server refused and keeps the unsaved rows (H4, H8, C11)", async () => {
+    const user = userEvent.setup();
+    mutateAsync.mockRejectedValue(
+      new HttpError(400, {
+        errors: [
+          { propertyName: "Fields", errorMessage: "Field_Names_Must_Be_Unique.", attemptedValue: [], severity: 0, errorCode: "PredicateValidator" },
+        ] as never,
+      }),
+    );
+    renderTable();
+
+    await editAndSave(user);
+
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: ["Property names must be unique."] }));
+    expect(editMode()).toBe("true");
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("keeps showing a dictionary body as it is (C5, E12)", async () => {
     const user = userEvent.setup();
     const errors = { Fields: ["Field names must be unique"] };
     mutateAsync.mockRejectedValue(new HttpError(400, { errors }));
@@ -798,5 +820,227 @@ describe("SchemaStructureTable", () => {
     await waitFor(() => expect(rows()).toHaveLength(2));
     expect(screen.getByTestId("row-name-0")).toHaveTextContent("email");
     expect(screen.getByTestId("row-name-1")).toHaveTextContent("age");
+  });
+
+  // ── #439: rejected saves, empty structures and the pending lock ─────────
+
+  describe("save errors, empty structure and pending lock (#439)", () => {
+    const EMPTY_MESSAGE = "Add at least one property before saving.";
+    const CONNECTION_MESSAGE = "The schema could not be saved. Check your connection and try again.";
+    const dirtyBarSave = () => screen.getByRole("button", { name: "Save" });
+    const tooLong = () =>
+      new HttpError(400, {
+        errors: [
+          {
+            propertyName: "Fields[1].Name",
+            errorMessage: "Field_Name_Length_Must_Be_Between_1_And_50_Characters.",
+            attemptedValue: "a".repeat(51),
+            severity: 0,
+            errorCode: "LengthValidator",
+          },
+        ] as never,
+      });
+
+    /** Enters edit mode and deletes both loaded rows. */
+    async function deleteEveryRow(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+      await user.click(screen.getByRole("button", { name: "del-1" }));
+      await user.click(screen.getByRole("button", { name: "del-0" }));
+      await waitFor(() => expect(rows()).toHaveLength(0));
+    }
+
+    it("says a property is needed and holds Save back once every row is gone (H9, E6)", async () => {
+      const user = userEvent.setup();
+      renderTable();
+
+      await deleteEveryRow(user);
+
+      const message = await screen.findByRole("status");
+      expect(message).toHaveTextContent(EMPTY_MESSAGE);
+      expect(dirtyBarSave()).toBeDisabled();
+      expect(dirtyBarSave()).toHaveAttribute("aria-describedby", message.id);
+    });
+
+    it("sends nothing and opens no dialog for an empty structure, whatever submits it (C1)", async () => {
+      const user = userEvent.setup();
+      renderTable();
+      await deleteEveryRow(user);
+
+      // The header's submit button reaches onSubmit even though the dirty bar's Save is disabled.
+      await user.click(screen.getByRole("button", { name: "header-save" }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(screen.queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+      expect(mutateAsync).not.toHaveBeenCalled();
+    });
+
+    it("drops the message as soon as a row is added again (H10)", async () => {
+      const user = userEvent.setup();
+      renderTable();
+      await deleteEveryRow(user);
+      expect(await screen.findByText(EMPTY_MESSAGE)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "+ Add property" }));
+
+      await waitFor(() => expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument());
+      expect(rows()).toHaveLength(1);
+    });
+
+    it("saves an Entity that keeps only its read-only base rows, as today (C14, E7)", async () => {
+      const user = userEvent.setup();
+      mutateAsync.mockResolvedValue({ isSuccess: true });
+      renderTable({
+        fields: [
+          { name: "ItemId", type: "String", isArray: false },
+          { name: "CreatedDate", type: "DateTime", isArray: false },
+          { name: "email", type: "String", isArray: false },
+        ],
+      } as Partial<Props>);
+
+      await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+      await user.click(screen.getByRole("button", { name: "del-2" }));
+      await waitFor(() => expect(rows()).toHaveLength(2));
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+
+      await user.click(dirtyBarSave());
+      await user.click(await screen.findByRole("button", { name: "Update" }));
+
+      await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+      expect(mutateAsync.mock.calls[0][0].fields.map((f: { name: string }) => f.name)).toEqual(["ItemId", "CreatedDate"]);
+    });
+
+    it("never shows a dirty bar or the message when embedded in a parent row (C15)", () => {
+      renderTable({ schemaType: 2, schemaName: "Address", fields: [], compactView: true });
+
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it("holds Save back and ignores a submit while a save is pending (H12, C9, E14)", async () => {
+      const user = userEvent.setup();
+      saveState.isPending = true;
+      renderTable();
+
+      await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+      await user.click(screen.getByRole("button", { name: "del-0" }));
+      await waitFor(() => expect(rows()).toHaveLength(1));
+
+      expect(dirtyBarSave()).toBeDisabled();
+      await user.click(screen.getByRole("button", { name: "header-save" }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+      expect(mutateAsync).not.toHaveBeenCalled();
+    });
+
+    it("re-enables Save once the save settles", async () => {
+      const user = userEvent.setup();
+      saveState.isPending = true;
+      const { rerender } = renderTable();
+      await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+      await user.click(screen.getByRole("button", { name: "del-0" }));
+      expect(dirtyBarSave()).toBeDisabled();
+
+      saveState.isPending = false;
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <SchemaStructureTable {...baseProps()} />
+        </QueryClientProvider>,
+      );
+
+      expect(dirtyBarSave()).toBeEnabled();
+    });
+
+    it("names a connection failure in the genesis-os 4.5.0 shape and keeps the edits (H11, E8)", async () => {
+      const user = userEvent.setup();
+      mutateAsync.mockRejectedValue(new HttpError(500, { errors: new TypeError("Failed to fetch") as never }));
+      renderTable();
+
+      await editAndSave(user);
+
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: CONNECTION_MESSAGE }));
+      expect(editMode()).toBe("true");
+      expect(rows()).toHaveLength(1);
+    });
+
+    it("names a connection failure in the next genesis-os shape (H11, E9)", async () => {
+      const user = userEvent.setup();
+      mutateAsync.mockRejectedValue(new HttpError(500, { errors: { general: "Failed to fetch", message: "Failed to fetch" } }));
+      renderTable();
+
+      await editAndSave(user);
+
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: CONNECTION_MESSAGE }));
+    });
+
+    it("shows one line per distinct reason, in server order (H7, E3)", async () => {
+      const user = userEvent.setup();
+      mutateAsync.mockRejectedValue(
+        new HttpError(400, {
+          errors: [
+            { errorMessage: "Field_EnumValues_Must_Be_Unique.", propertyName: "Fields[1].EnumValues" },
+            { errorMessage: "Field_Type_Is_Not_Valid.", propertyName: "Fields[2].Type" },
+            { errorMessage: "Field_EnumValues_Must_Be_Unique.", propertyName: "Fields[4].EnumValues" },
+          ] as never,
+        }),
+      );
+      renderTable();
+
+      await editAndSave(user);
+
+      await waitFor(() =>
+        expect(showErrorToast).toHaveBeenCalledWith({
+          errors: ["Allowed values must be unique.", "A property uses a type that does not exist. Choose another type."],
+        }),
+      );
+    });
+
+    it("maps the empty-structure rejection the server sends (H3)", async () => {
+      const user = userEvent.setup();
+      mutateAsync.mockRejectedValue(new HttpError(400, { errors: [{ propertyName: "Fields", errorMessage: "Fields_Are_Required.", attemptedValue: [] }] as never }));
+      renderTable();
+
+      await editAndSave(user);
+
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: [EMPTY_MESSAGE] }));
+    });
+
+    it("keeps the dialog closed, retries nothing and invalidates nothing after a rejection (C2, C10, C16, H5)", async () => {
+      const user = userEvent.setup();
+      const unhandled = vi.fn();
+      nodeProcess.on("unhandledRejection", unhandled);
+      mutateAsync.mockRejectedValue(tooLong());
+      const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+      renderTable();
+
+      try {
+        await editAndSave(user);
+        await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: ["Property names can be at most 50 characters."] }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } finally {
+        nodeProcess.off("unhandledRejection", unhandled);
+      }
+
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(mutateAsync).toHaveBeenCalledTimes(1);
+      expect(invalidateQueries).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+      expect(editMode()).toBe("true");
+    });
+
+    it("saves with one more request once the rejected edit is fixed, without a reload (H8, H1)", async () => {
+      const user = userEvent.setup();
+      mutateAsync.mockRejectedValueOnce(tooLong()).mockResolvedValueOnce({ isSuccess: true });
+      renderTable();
+
+      await editAndSave(user);
+      await waitFor(() => expect(showErrorToast).toHaveBeenCalledTimes(1));
+
+      await user.click(dirtyBarSave());
+      await user.click(await screen.findByRole("button", { name: "Update" }));
+
+      await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(showSuccessToast).toHaveBeenCalledWith({ description: "Schema updated successfully" }));
+      expect(editMode()).toBe("false");
+    });
   });
 });

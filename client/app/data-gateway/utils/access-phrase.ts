@@ -97,13 +97,18 @@ export type RuleSetLine = {
  */
 export function ruleSetLines(policy: IPolicyItem): RuleSetLine[] {
   const walk = (group: IPolicyRuleGroup, depth: number): RuleSetLine[] => {
-    const joiner = group.logicalOperator === LOGICAL_OPERATOR.AND ? "and" : "or";
+    const joiner =
+      group.logicalOperator === LOGICAL_OPERATOR.AND
+        ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.LEAD_AND")
+        : tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.LEAD_OR");
+    // Only the set's first line opens with "when"; a nested group's first line has no lead.
+    const opening = depth === 0 ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.LEAD_WHEN") : "";
     const items = [
       ...(group.rules ?? []).map((rule) => ({ rule })),
       ...(group.nestedGroups ?? []).map((nested) => ({ nested })),
     ];
     return items.flatMap((item, index): RuleSetLine[] => {
-      const lead = index === 0 ? (depth === 0 ? "when" : "") : joiner;
+      const lead = index === 0 ? opening : joiner;
       if ("rule" in item) {
         return [{ lead, text: rulePhrase(item.rule), depth, kind: "rule" }];
       }
@@ -120,7 +125,10 @@ export function ruleSetLines(policy: IPolicyItem): RuleSetLine[] {
 const listNames = (policies: IPolicyItem[]) => {
   const names = policies.map((p) => p.policyName).filter(Boolean);
   if (names.length <= 1) return names.join("");
-  return `${names.slice(0, -1).join(", ")}, or ${names[names.length - 1]}`;
+  return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.NAMES_OR_LAST", {
+    names: names.slice(0, -1).join(", "),
+    last: names.at(-1) ?? "",
+  });
 };
 
 /**

@@ -893,6 +893,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                 schemaName={schemaDetails.schemaName}
                 fields={templateFields}
                 previewData={previewData}
+                rawIntrospection={rawIntrospection}
+                // Pending = no data yet and a fetch running. Written without `&&` so this
+                // component's cognitive complexity stays as it is.
+                introspectionPending={[isGatewayIntrospectionPending, isGatewayIntrospectionFetching].every(Boolean)}
               />
             </div>
           )}

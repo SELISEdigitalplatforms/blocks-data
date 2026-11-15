@@ -199,7 +199,7 @@ export const SchemaBasicInfo = ({
                     isEntity ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
                   )}
                 >
-                  {schemaType}
+                  {t(isEntity ? "SCHEMA_BASIC_INFO.ENTITY" : "SCHEMA_BASIC_INFO.CHILD")}
                 </span>
                 {liveState === "not-live" && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning-500/50 bg-warning-100 px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-warning-800">

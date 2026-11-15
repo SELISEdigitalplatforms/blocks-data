@@ -264,7 +264,7 @@ export function ConditionEditor({
     );
   }
 
-  const join = draft.combine === "OR" ? "or" : "and";
+  const join = draft.combine === "OR" ? t("CONDITION_EDITOR.OR") : t("CONDITION_EDITOR.AND");
   const update = (rows: ConditionRow[]) => onChange({ ...draft, rows });
 
   return (

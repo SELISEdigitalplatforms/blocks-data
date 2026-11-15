@@ -1,6 +1,7 @@
 {
   "CONDITION_EDITOR.ADD_CONDITION": "Add condition",
   "CONDITION_EDITOR.ALL_MATCH": "All match",
+  "CONDITION_EDITOR.AND": "and",
   "CONDITION_EDITOR.ANY_MATCHES": "Any matches",
   "CONDITION_EDITOR.CHECKED_ONLY_WHEN": "Checked only when",
   "CONDITION_EDITOR.COMPARED_PROPERTY": "Compared property",
@@ -13,6 +14,7 @@
   "CONDITION_EDITOR.HOW_THE_CONDITIONS_COMBINE": "How the conditions combine",
   "CONDITION_EDITOR.NO_VALUE_NEEDED": "no value needed",
   "CONDITION_EDITOR.ONLY_WHEN": "Only when",
+  "CONDITION_EDITOR.OR": "or",
   "CONDITION_EDITOR.PICK_A_PROPERTY": "Pick a property",
   "CONDITION_EDITOR.PROPERTY": "Property",
   "CONDITION_EDITOR.REMOVE_CONDITION": "Remove condition",

@@ -18,8 +18,8 @@ export const MfaCheck = () => {
   });
   const mfaTypeMessage =
     mfaType == 1
-      ? "2-step verification enabled. Open your authenticator app and get the verification code. Enter the code here."
-      : "2-step verification enabled. Check your email for the verification code. Enter the code here to continue.";
+      ? t("MFA_CHECK.AUTHENTICATOR_APP_CODE")
+      : t("MFA_CHECK.EMAIL_CODE");
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">

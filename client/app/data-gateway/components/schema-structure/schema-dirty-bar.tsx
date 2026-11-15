@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { AlertTriangle } from "lucide-react";
+import { useId } from "react";
 
 import { describeChange, type SchemaDiff } from "../../utils/schema-diff";
 import { useT } from "@seliseblocks/genesis-os/i18n";
@@ -9,6 +10,10 @@ interface SchemaDirtyBarProps {
   onSave?: () => void;
   isValid: boolean;
   diff: SchemaDiff;
+  /** No rows left: the server refuses an empty structure, so Save is held back and the bar says why. */
+  isEmpty?: boolean;
+  /** A confirmed save is still in flight: a second click would send a second request. */
+  isSaving?: boolean;
 }
 
 /**
@@ -23,8 +28,9 @@ interface SchemaDirtyBarProps {
  * React Hook Form's dirty flags: removing a row marks every later row dirty,
  * which would put a wrong number in front of the reader.
  */
-export function SchemaDirtyBar({ onSave, isValid, diff }: SchemaDirtyBarProps) {
+export function SchemaDirtyBar({ onSave, isValid, diff, isEmpty = false, isSaving = false }: Readonly<SchemaDirtyBarProps>) {
   const { t } = useT("data.gateway.schema");
+  const emptyMessageId = useId();
   const summary = diff.changes.map(describeChange).join(" · ");
 
   return (
@@ -34,15 +40,24 @@ export function SchemaDirtyBar({ onSave, isValid, diff }: SchemaDirtyBarProps) {
         <p className="text-xs font-semibold text-foreground">
           {diff.count === 1 ? t("SCHEMA_DIRTY_BAR.1_UNSAVED_CHANGE") : t("SCHEMA_DIRTY_BAR.COUNT_UNSAVED_CHANGES", { count: diff.count })}
         </p>
-        <p className="truncate text-[11px] text-muted-foreground" title={summary || undefined}>
-          {summary || t("SCHEMA_DIRTY_BAR.SCHEMA_PROPERTIES_ARE_USED_ACROSS")}
-        </p>
+        {isEmpty ? (
+          // <output> is a polite status region, so the reason is announced once when it appears.
+          // It wraps rather than truncating, so a longer translation is never cut off.
+          <output id={emptyMessageId} className="block text-[11px] text-destructive">
+            {t("SCHEMA_STRUCTURE_SAVE_ERRORS.ADD_AT_LEAST_ONE_PROPERTY")}
+          </output>
+        ) : (
+          <p className="truncate text-[11px] text-muted-foreground" title={summary || undefined}>
+            {summary || t("SCHEMA_DIRTY_BAR.SCHEMA_PROPERTIES_ARE_USED_ACROSS")}
+          </p>
+        )}
       </div>
       <div className="flex-1" />
       <Button
         size="sm"
         type={onSave ? "button" : "submit"}
-        disabled={!isValid}
+        disabled={!isValid || isEmpty || isSaving}
+        aria-describedby={isEmpty ? emptyMessageId : undefined}
         onClick={onSave}
       >
         {t("common:SAVE")}

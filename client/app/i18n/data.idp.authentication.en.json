@@ -220,6 +220,8 @@
   "MAP_JWT_CLAIM_MODAL.SOMETHING_WENT_WRONG": "Something went wrong!",
   "MAP_JWT_CLAIM_MODAL.USER_ID": "User Id",
   "MAP_JWT_CLAIM_MODAL.USER_NAME": "User Name",
+  "MFA_CHECK.AUTHENTICATOR_APP_CODE": "2-step verification enabled. Open your authenticator app and get the verification code. Enter the code here.",
+  "MFA_CHECK.EMAIL_CODE": "2-step verification enabled. Check your email for the verification code. Enter the code here to continue.",
   "MFA_CHECK.VERIFY_IT_S_YOU": "Verify it’s you",
   "MFA_CHECK_FORM.RESEND_OTP": "Resend Otp",
   "MFA_CHECK_FORM.RESEND_OTP_IN": "Resend Otp ({{time}})",

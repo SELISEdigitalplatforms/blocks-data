@@ -691,7 +691,7 @@ export function SchemaFieldValidationPanel({
                     <p className={HINT_CLASS}>
                       {tx("SCHEMA_FIELD_VALIDATION_PANEL.CONDITIONS_READ_THIS_RECORD_S_OWN")}
                     </p>
-                    {showDraftError && whenError && whenError !== "Fix the conditions above" && (
+                    {showDraftError && whenError && whenError !== tx("VALIDATION_CONDITIONS.FIX_THE_CONDITIONS_ABOVE") && (
                       <p role="alert" className="text-[11.5px] text-rose-500">
                         {whenError}
                       </p>

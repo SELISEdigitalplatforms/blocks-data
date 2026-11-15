@@ -31,8 +31,8 @@ import { SchemaPreviewDrawer } from "./schema-preview-drawer";
 import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-field-validation-drawer";
 import { DefaultValueDrawer } from "./default-value/default-value-drawer";
 import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
-import { mapIndexErrorFromException, mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
-import { HttpError } from "@/lib/http-client";
+import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
+import { mapSchemaSaveError } from "../utils/schema-structure-save-errors";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
@@ -240,7 +240,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const isEmbedded = compactView ?? false;
   const schemaType = schemaDetails.schemaType;
   const queryClient = useQueryClient();
-  const { mutateAsync } = useUpdateSchemaStructure();
+  const { mutateAsync, isPending: isSaving } = useUpdateSchemaStructure();
   const {
     control,
     register,
@@ -487,6 +487,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   }, [schemaDetails.fields, bulkOperations.selectedFieldNames, bulkOperations]);
 
   const onSubmit = (data: { properties: PropertyRow[] }) => {
+    // Whatever submitted the form, nothing is sent while a save is still in flight, or when no
+    // property is left: the server refuses an empty structure (Fields_Are_Required) every time.
+    if (isSaving || data.properties.length === 0) return;
     const currentNames = data.properties.map((p) => p.name);
     const deletedNames = originalFieldNamesRef.current.filter(
       (name) => !currentNames.includes(name),
@@ -530,12 +533,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       return;
     }
     // Any other failure keeps edit mode and the unsaved rows, so the user can fix and retry.
-    if (error instanceof HttpError) {
-      showErrorToast({ errors: mapIndexErrorFromException(error) ?? error.errors });
-      return;
-    }
-    // No errors to show: the toast falls back to "An unexpected error occurred."
-    showErrorToast({ errors: undefined });
+    showErrorToast({ errors: mapSchemaSaveError(error) });
   };
 
   const saveSchemaStructure = async (payload: IUpdateSchemaStructure) => {
@@ -1231,6 +1229,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           {activeTab === "attribute" && isEditMode && isDirty && !isEmbedded && (
             <SchemaDirtyBar
               isValid={isValid}
+              isEmpty={fields.length === 0}
+              isSaving={isSaving}
               diff={schemaDiff}
               onSave={useDivWrapper ? () => handleSubmit(onSubmit)() : undefined}
             />

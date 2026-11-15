@@ -7,11 +7,12 @@ using Blocks.Data.Api.Filters;
 using DataGateway.Rest;
 using DomainService.Storage;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -132,7 +133,7 @@ public sealed class LocalUploadRequestLimitTests : IClassFixture<LocalUploadRequ
     }
 
     [Fact]
-    public async Task C11_a_refused_permission_answers_before_the_form_is_read_even_over_the_limit()
+    public async Task C11_a_refused_ProtectedEndPoint_policy_answers_before_the_form_is_read_even_over_the_limit()
     {
         _host.DenyPermission = true;
         using var request = new HttpRequestMessage(HttpMethod.Post, Route) { Content = Form(105 * MiB) };
@@ -277,10 +278,15 @@ public sealed class LocalUploadRequestLimitTests : IClassFixture<LocalUploadRequ
             builder.Logging.ClearProviders();
             builder.Services.AddSingleton(service.Object);
             builder.Services.AddSingleton(Mock.Of<IFileService>());
-            // [ProtectedEndPoint] names Genesis' "Protected" policy; the permission itself is the resource filter's job below.
-            builder.Services.AddAuthorization(options => options.AddPolicy("Protected", policy => policy.RequireAssertion(_ => true)));
-            // Stands in for Genesis' global ProtectedEndPointResourceFilter: a global resource filter, so it runs before binding.
-            builder.Services.AddControllers(options => options.Filters.Add(new PermissionStandIn(this)))
+            // [ProtectedEndPoint] is Genesis' "Protected" authorization policy; UseAuthorization enforces it before MVC, so a
+            // refused permission is answered before any filter or binding reads the body. Here the policy follows DenyPermission.
+            builder.Services.AddAuthorization(options => options.AddPolicy("Protected", policy => policy.RequireAssertion(_ =>
+            {
+                Interlocked.Increment(ref _permissionChecks);
+                return !DenyPermission;
+            })));
+            builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, StatusOnlyAuthorizationResultHandler>();
+            builder.Services.AddControllers()
                 .AddApplicationPart(typeof(FileController).Assembly);
             // Every Api controller is routed; the gateway routes need their constraint even though these tests never call them.
             builder.Services.Configure<RouteOptions>(options =>
@@ -300,17 +306,17 @@ public sealed class LocalUploadRequestLimitTests : IClassFixture<LocalUploadRequ
                 await _app.DisposeAsync();
         }
 
-        private sealed class PermissionStandIn(Host host) : IResourceFilter
+        /// <summary>Answers a failed policy with a bare 403, as the test host has no authentication scheme to forbid with.</summary>
+        private sealed class StatusOnlyAuthorizationResultHandler : IAuthorizationMiddlewareResultHandler
         {
-            public void OnResourceExecuting(ResourceExecutingContext context)
-            {
-                Interlocked.Increment(ref host._permissionChecks);
-                if (host.DenyPermission)
-                    context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
-            }
+            private readonly AuthorizationMiddlewareResultHandler _default = new();
 
-            public void OnResourceExecuted(ResourceExecutedContext context)
+            public Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy, PolicyAuthorizationResult authorizeResult)
             {
+                if (authorizeResult.Succeeded)
+                    return _default.HandleAsync(next, context, policy, authorizeResult);
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
             }
         }
     }

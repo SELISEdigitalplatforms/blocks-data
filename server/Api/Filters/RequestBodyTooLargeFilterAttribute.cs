@@ -12,9 +12,10 @@ namespace Blocks.Data.Api.Filters;
 /// <remarks>
 /// Kestrel signals an oversized body by failing the read with a 413 <see cref="BadHttpRequestException"/>. Left to model
 /// binding, that read failure is kept only as a model-state message and <c>[ApiController]</c> answers it as a generic 400,
-/// so this filter reads the form itself first. It is a resource filter: it runs after the authorization filters that apply
-/// the request limits and after the global permission filter, and before model binding, which then reuses the form read
-/// here. Any other read failure (a malformed or aborted body) is left to model binding, which answers it as before.
+/// so this filter reads the form itself first. It is a resource filter: it runs after authorization (where the
+/// <c>ProtectedEndPoint</c> policy refuses an unpermitted caller before any body is read) and after the authorization
+/// filters that apply the request limits, and before model binding, which then reuses the form read here. Any other read
+/// failure (a malformed or aborted body) is left to model binding, which answers it as before.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class RequestBodyTooLargeFilterAttribute : Attribute, IAsyncResourceFilter
@@ -51,7 +52,9 @@ public sealed class RequestBodyTooLargeFilterAttribute : Attribute, IAsyncResour
 
         try
         {
-            await http.Request.ReadFormAsync(http.RequestAborted);
+            // No abort token, like model binding's own read: an aborted upload then fails as an I/O error and is left to
+            // binding as before, instead of surfacing here as a cancellation.
+            await http.Request.ReadFormAsync();
             return false;
         }
         catch (BadHttpRequestException exception) when (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)

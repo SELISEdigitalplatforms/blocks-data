@@ -83,8 +83,8 @@ const settleWithLimit = async <T, R>(
       nextIndex += 1;
       try {
         results[index] = { status: "fulfilled", value: await task(items[index]) };
-      } catch (reason) {
-        results[index] = { status: "rejected", reason };
+      } catch (error_) {
+        results[index] = { status: "rejected", reason: error_ };
       }
     }
   };

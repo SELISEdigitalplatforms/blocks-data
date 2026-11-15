@@ -73,4 +73,35 @@ describe("SchemaDirtyBar", () => {
     render(<SchemaDirtyBar isValid diff={diff()} />);
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("type", "submit");
   });
+
+  // #439 A4: the server refuses an empty structure, so the bar says so before Save is pressed.
+  it("says a property is needed and holds Save back when no row is left", () => {
+    render(<SchemaDirtyBar isValid isEmpty diff={diff({ count: 2, changes: [{ kind: "removed", name: "street" }] })} />);
+
+    const message = screen.getByRole("status");
+    expect(message).toHaveTextContent("Add at least one property before saving.");
+    expect(message).toHaveClass("text-destructive");
+    // Wraps instead of truncating, so a longer translation is never cut off.
+    expect(message).not.toHaveClass("truncate");
+    expect(screen.queryByText("street removed")).not.toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAttribute("aria-describedby", message.id);
+  });
+
+  it("shows the summary and no message while rows remain", () => {
+    render(<SchemaDirtyBar isValid diff={diff({ count: 1, changes: [{ kind: "added", name: "Nickname" }] })} />);
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).not.toHaveAttribute("aria-describedby");
+  });
+
+  // #439 A6: a second click during a save would send a second request.
+  it("holds Save back while a save is in flight", () => {
+    const { rerender } = render(<SchemaDirtyBar isValid isSaving diff={diff()} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    rerender(<SchemaDirtyBar isValid isSaving={false} diff={diff()} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
 });

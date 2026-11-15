@@ -53,7 +53,11 @@ const invalidName = (name: string, position: number): VariableError => ({
 function checkNameShape(name: string, position: number, mode: VariableMode, schema: string): VariableError | null {
   if (!name.includes(".")) {
     if (!SEGMENT_PATTERN.test(name)) return invalidName(name, position);
-    const target = mode === "template" ? `{{${schema}.${name}}} or {{Auth.…}}` : `{{${schema}.${name}}}`;
+    const schemaVariable = `{{${schema}.${name}}}`;
+    const target =
+      mode === "template"
+        ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.SCHEMA_OR_AUTH_VARIABLE", { schemaVariable, authVariable: "{{Auth.…}}" })
+        : schemaVariable;
     return { message: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.MISSING_PREFIX_AT_POSITION_POSITION", { position, target }), position };
   }
   return NAME_PATTERN.test(name) ? null : invalidName(name, position);
@@ -65,7 +69,7 @@ const at = (message: string, position: number): VariableError => ({ message, pos
 function singleOpenBrace(text: string, i: number, schema: string): VariableError {
   const inner = text.slice(i + 1).split("}")[0].trim();
   const example = inner.length > 0 ? `{{${inner}}}` : `{{${schema}.Property}}`;
-  return at(`Single "{" at position ${i + 1}: variables are written ${example}`, i + 1);
+  return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.SINGLE_BRACE_AT_POSITION", { position: i + 1, example }), i + 1);
 }
 
 /** The variable starting at <paramref name="i"/> ("{{"): its part and where the text continues, or the error. */
@@ -96,7 +100,7 @@ function readVariable(
 function checkSingle(parts: VariablePart[]): VariableError | null {
   const variable = parts.find(isVariable);
   if (!variable || parts.length === 1) return null;
-  return at(`A validation value is either a fixed value or one variable, e.g. {{${nameOf(variable)}}}`, 1);
+  return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.FIXED_VALUE_OR_ONE_VARIABLE", { example: `{{${nameOf(variable)}}}` }), 1);
 }
 
 /** At a "{" or "}": the variable that starts there, or the syntax error. */

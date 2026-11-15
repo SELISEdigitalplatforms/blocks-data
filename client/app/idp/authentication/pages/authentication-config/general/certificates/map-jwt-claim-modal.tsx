@@ -52,7 +52,7 @@ const REQUIRED_PROPERTIES: RequiredProperty[] = ["userId", "email", "name", "use
 const PROPERTY_LABELS: Record<RequiredProperty, string> = {
   get userId() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "MAP_JWT_CLAIM_MODAL.USER_ID"); },
   get email() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "common:EMAIL"); },
-  name: "Name",
+  get name() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "common:NAME"); },
   get userName() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "MAP_JWT_CLAIM_MODAL.USER_NAME"); },
   get roles() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "MAP_JWT_CLAIM_MODAL.ROLES"); },
 };

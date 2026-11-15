@@ -828,6 +828,59 @@ describe("SchemaDataTab drift handling", () => {
     expect(await screen.findByText("No data found")).toBeInTheDocument();
   });
 
+  it("H12: re-queries once when a publish brings the schema into the live version", async () => {
+    executeGraphQL.mockRejectedValueOnce(fieldError("Field `getUsers` does not exist on type `Query`."));
+    const notLive = userIntrospection(["name"]);
+    notLive.data.__schema.types[0].fields = [];
+    const fields = [{ name: "name", isArray: false }];
+    const { rerender } = renderDataTab({ fields, rawIntrospection: notLive });
+    await screen.findByText("This schema isn't in the live version yet. Publish it, then refresh.");
+
+    executeGraphQL.mockResolvedValue(rowsResponse([{ name: "Alice" }]));
+    // Same selection text as before, but the schema is now served.
+    rerender({ fields, rawIntrospection: userIntrospection(["name"]) });
+    expect(await screen.findByText("Alice")).toBeInTheDocument();
+    expect(executeGraphQL).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not re-query on its own when only the form-built selection changes", async () => {
+    executeGraphQL.mockResolvedValue(rowsResponse([{ name: "Alice" }]));
+    const fields = [{ name: "address", isArray: false }];
+    const { rerender } = renderDataTab({ fields, rawIntrospection: undefined, previewData: {} });
+    await screen.findByText("Alice");
+
+    rerender({ fields, rawIntrospection: undefined, previewData: { address: { city: "c" } } });
+    await act(async () => {});
+    expect(executeGraphQL).toHaveBeenCalledTimes(1);
+  });
+
+  it("still sends user actions when introspection is pending again after the first query", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue(rowsResponse([{ name: "Alice" }]));
+    const { rerender } = renderDataTab();
+    await screen.findByText("Alice");
+
+    rerender({ introspectionPending: true });
+    await act(async () => {});
+    expect(executeGraphQL).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByText("apply-filter"));
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalledTimes(2));
+    expect(lastQuery()).toContain("filter:");
+    expect(await screen.findByText("Alice")).toBeInTheDocument();
+  });
+
+  it("ignores the previous schema's response after a schema change", async () => {
+    const first = deferred<unknown>();
+    executeGraphQL.mockReturnValueOnce(first.promise);
+    const { rerender, container } = renderDataTab();
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalledTimes(1));
+
+    rerender({ schemaName: "Account", rawIntrospection: undefined, introspectionPending: true });
+    await act(async () => first.resolve(rowsResponse([{ name: "OldRow" }])));
+    expect(screen.queryByText("OldRow")).not.toBeInTheDocument();
+    expect(hasSkeleton(container)).toBe(true);
+  });
+
   it("renders rows under StrictMode's double effects", async () => {
     executeGraphQL.mockResolvedValue(rowsResponse([{ name: "Alice" }]));
     render(

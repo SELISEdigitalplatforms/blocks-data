@@ -99,9 +99,10 @@ function fallbackField(
 }
 
 /**
- * Resolves which form fields the live gateway can serve. Never throws: any
- * unexpected introspection shape gives `unresolved`, and the caller then builds
- * the query as it did before this helper existed.
+ * Resolves which form fields the live gateway can serve. An unexpected shape of
+ * the schema, query, result or item type gives `unresolved`, and the caller then
+ * builds the query as it did before this helper existed. Nested types are read
+ * by the shared `buildSelectionSet`, so the tab still guards the call.
  */
 export function resolveDataTabSelection({
   rawIntrospection,

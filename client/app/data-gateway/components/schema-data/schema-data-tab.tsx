@@ -175,6 +175,31 @@ function buildSelectionLines(
     : buildFormSelectionLines(fields, previewData, projectionFields);
 }
 
+/** Maps a failed request to what the error state shows; 404 and unknown errors keep today's text. */
+function toTabError(
+  err: unknown,
+  listFieldName: string,
+  queryTypeName: string,
+  translate: (key: string) => string,
+): TabError {
+  if (err instanceof HttpError) {
+    if (err.status === 404) {
+      return { kind: "message", message: translate("SCHEMA_DATA_TAB.PLEASE_CHECK_THE_SERVER_STATUS") };
+    }
+    // The gateway's errors array; `HttpError.message` is its JSON text.
+    const fieldErrors = parseFieldDoesNotExistErrors(err.errors);
+    if (fieldErrors) {
+      const [first] = fieldErrors;
+      const isListFieldMissing =
+        fieldErrors.length === 1 && first.field === listFieldName && first.type === queryTypeName;
+      return isListFieldMissing
+        ? { kind: "not-live", raw: err.message }
+        : { kind: "missing-fields", fields: fieldErrors, raw: err.message };
+    }
+  }
+  return { kind: "message", message: err instanceof Error ? err.message : String(err) };
+}
+
 function safeResolveSelection(
   rawIntrospection: unknown,
   schemaName: string,
@@ -434,36 +459,27 @@ export function SchemaDataTab({
     return () => clearTimeout(timer);
   }, [isWaitingForIntrospection, schemaName]);
 
-  // Only the newest request may update the tab, and nothing updates it after unmount.
+  // Only the newest request for the current schema may update the tab, and
+  // nothing updates it after unmount.
   const requestSeqRef = useRef(0);
   const isMountedRef = useRef(false);
+  const currentSchemaRef = useRef(schemaName);
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
   }, []);
+  useEffect(() => {
+    currentSchemaRef.current = schemaName;
+  }, [schemaName]);
 
-  const toTabError = (err: unknown): TabError => {
-    if (err instanceof HttpError) {
-      if (err.status === 404) {
-        return { kind: "message", message: t("SCHEMA_DATA_TAB.PLEASE_CHECK_THE_SERVER_STATUS") };
-      }
-      // The gateway's errors array; `HttpError.message` is its JSON text.
-      const fieldErrors = parseFieldDoesNotExistErrors(err.errors);
-      if (fieldErrors) {
-        const [first] = fieldErrors;
-        const isListFieldMissing =
-          fieldErrors.length === 1 &&
-          first.field === `get${schemaName}s` &&
-          first.type === queryTypeName;
-        return isListFieldMissing
-          ? { kind: "not-live", raw: err.message }
-          : { kind: "missing-fields", fields: fieldErrors, raw: err.message };
-      }
-    }
-    return { kind: "message", message: err instanceof Error ? err.message : String(err) };
-  };
+  // The last automatic query: which schema, selection and selection status it used.
+  const lastAutoQueryRef = useRef<{
+    schemaName: string;
+    selectionKey: string;
+    status: DataTabSelection["status"];
+  } | null>(null);
 
   const fetchData = async (
     page = pageNo,
@@ -476,9 +492,9 @@ export function SchemaDataTab({
     if (!schemaName) return;
     setIsLoading(true);
     setError(null);
-    // While the first query waits for introspection, the change is kept in state
-    // and goes out with that query.
-    if (isWaitingForIntrospection) return;
+    // While the schema's first query waits for introspection, the change is kept
+    // in state and goes out with that query.
+    if (isWaitingForIntrospection && lastAutoQueryRef.current?.schemaName !== schemaName) return;
     await runQuery(page, size, filter, projectionFields, sortBy, sortDescending);
   };
 
@@ -494,7 +510,10 @@ export function SchemaDataTab({
     if (!schemaName) return;
     requestSeqRef.current += 1;
     const requestSeq = requestSeqRef.current;
-    const isCurrent = () => isMountedRef.current && requestSeq === requestSeqRef.current;
+    const isCurrent = () =>
+      isMountedRef.current &&
+      requestSeq === requestSeqRef.current &&
+      currentSchemaRef.current === schemaName;
     try {
       const query = buildGetQuery(
         schemaName,
@@ -525,7 +544,7 @@ export function SchemaDataTab({
       setData(Array.isArray(items) ? (items as Record<string, unknown>[]) : []);
       setTotalCount(count);
     } catch (err) {
-      if (isCurrent()) setError(toTabError(err));
+      if (isCurrent()) setError(toTabError(err, `get${schemaName}s`, queryTypeName, t));
     } finally {
       if (isCurrent()) setIsLoading(false);
     }
@@ -549,26 +568,34 @@ export function SchemaDataTab({
   }
 
   // Automatic queries: the schema's first page once introspection has settled (or
-  // the wait expired), then one re-query whenever the computed selection changes,
-  // for example after a publish re-seeds introspection. User actions query on
-  // their own; a parent re-render with an equal selection queries nothing.
-  const lastAutoQueryRef = useRef<{ schemaName: string; selectionKey: string } | null>(null);
+  // the wait expired), then one re-query when introspection changes the computed
+  // selection, for example after a publish re-seeds it. A schema that just became
+  // live re-queries even when its selection text is the same. While introspection
+  // stays unavailable, the form-built selection never re-queries on its own, as
+  // before. User actions query on their own; equal re-renders query nothing.
+  const selectionStatus = selection.status;
   useEffect(() => {
-    if (!schemaName || isWaitingForIntrospection) return;
     const last = lastAutoQueryRef.current;
-    if (last?.schemaName === schemaName && last.selectionKey === selectionKey) return;
-    lastAutoQueryRef.current = { schemaName, selectionKey };
+    const isFirstForSchema = last?.schemaName !== schemaName;
+    if (!schemaName || (isWaitingForIntrospection && isFirstForSchema)) return;
+    lastAutoQueryRef.current = { schemaName, selectionKey, status: selectionStatus };
     const sortDescending = appliedSortDirection === "desc";
-    if (last?.schemaName === schemaName) {
-      fetchData(pageNo, pageSize, appliedQueryFilter, appliedProjectionFields, appliedSortField, sortDescending);
-    } else {
+    if (isFirstForSchema) {
       // The schema-change reset above already shows the skeleton.
       runQuery(pageNo, pageSize, appliedQueryFilter, appliedProjectionFields, appliedSortField, sortDescending);
+      return;
     }
-    // Only these three decide when an automatic query goes out; the paging, filter,
+    const becameLive = last.status === "not-on-gateway" && selectionStatus === "resolved";
+    const introspectionChangedSelection =
+      last.selectionKey !== selectionKey &&
+      (last.status !== "unresolved" || selectionStatus !== "unresolved");
+    if (becameLive || introspectionChangedSelection) {
+      fetchData(pageNo, pageSize, appliedQueryFilter, appliedProjectionFields, appliedSortField, sortDescending);
+    }
+    // Only these decide when an automatic query goes out; the paging, filter,
     // projection and sort it carries are read as they are at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemaName, isWaitingForIntrospection, selectionKey]);
+  }, [schemaName, isWaitingForIntrospection, selectionKey, selectionStatus]);
 
   const handlePageChange = (nextPage: number) => {
     setPageNo(nextPage);

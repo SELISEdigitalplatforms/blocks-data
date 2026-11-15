@@ -58,7 +58,12 @@ vi.mock("../hooks/use-configuration", async (importOriginal) => {
   removeSchemaDetails: actual.removeSchemaDetails,
   refreshSchemaLists: actual.refreshSchemaLists,
   useUpdateSchemaStructure: () => ({ mutateAsync, isPending: saveState.isPending }),
-  useRawIntrospectionQuery: () => ({ data: undefined }),
+  // Settled data that is refetching in the background: the Data tab must not treat it as pending.
+  useRawIntrospectionQuery: () => ({
+    data: { data: { __schema: { queryType: { name: "Query" }, types: [] } } },
+    isPending: false,
+    isFetching: true,
+  }),
   usePendingSchemaIds: () => new Set<string>(),
   useSchemaList: () => ({
     data: {
@@ -195,7 +200,15 @@ vi.mock("./schema-structure/schema-mobile-card", () => ({
 }));
 
 vi.mock("./schema-data", () => ({
-  SchemaDataTab: (p: Record<string, unknown>) => <div data-testid="data-tab">{p.schemaName}</div>,
+  SchemaDataTab: (p: Record<string, unknown>) => (
+    <div
+      data-testid="data-tab"
+      data-raw-introspection={JSON.stringify(p.rawIntrospection)}
+      data-introspection-pending={String(p.introspectionPending)}
+    >
+      {p.schemaName}
+    </div>
+  ),
 }));
 
 vi.mock("./child-schema-expandable-content", () => ({
@@ -415,7 +428,13 @@ describe("SchemaStructureTable", () => {
     expect(screen.queryByTestId("data-tab")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "go-data" }));
-    expect(screen.getByTestId("data-tab")).toHaveTextContent("User");
+    const dataTab = screen.getByTestId("data-tab");
+    expect(dataTab).toHaveTextContent("User");
+    // The tab gets the project's introspection, and "pending" only while there is no data yet.
+    expect(JSON.parse(dataTab.dataset.rawIntrospection ?? "null")).toEqual({
+      data: { __schema: { queryType: { name: "Query" }, types: [] } },
+    });
+    expect(dataTab).toHaveAttribute("data-introspection-pending", "false");
   });
 
   it("opens the preview drawer from the header", async () => {

@@ -174,7 +174,7 @@ export function accessEffect({
   if (tier === "inherited") {
     return {
       heading: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.INHERITED"),
-      text: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.FOLLOWS_WHATEVER_THE_SCHEMA_ALLOWS_FOR", { value: verb === "read" ? "reading" : verb }),
+      text: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.FOLLOWS_WHATEVER_THE_SCHEMA_ALLOWS_FOR", { value: verb === "read" ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_PHRASE.READING") : verb }),
       risk: "inherited",
     };
   }

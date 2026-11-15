@@ -76,6 +76,8 @@ function objectFields(type: IntrospectionType | undefined) {
   return type.fields.filter((field) => isRecord(field) && typeof field.name === "string");
 }
 
+type ItemFields = NonNullable<ReturnType<typeof objectFields>>;
+
 function baseTypeOf(typeRef: unknown): string | null {
   return isRecord(typeRef) ? resolveBaseTypeName(typeRef as unknown as TypeRef) : null;
 }
@@ -85,7 +87,7 @@ function baseTypeOf(typeRef: unknown): string | null {
  * selection set, so pick `ItemId`, else the first non-object field, else `__typename`.
  */
 function fallbackField(
-  itemFields: NonNullable<ReturnType<typeof objectFields>>,
+  itemFields: ItemFields,
   typeMap: Map<string, IntrospectionType>,
 ): DataTabField {
   if (itemFields.some((field) => field.name === "ItemId")) {
@@ -98,35 +100,26 @@ function fallbackField(
   return { name: scalar?.name ?? "__typename", isArray: false };
 }
 
-/**
- * Resolves which form fields the live gateway can serve. An unexpected shape of
- * the schema, query, result or item type gives `unresolved`, and the caller then
- * builds the query as it did before this helper existed. Nested types are read
- * by the shared `buildSelectionSet`, so the tab still guards the call.
- */
-export function resolveDataTabSelection({
-  rawIntrospection,
-  schemaName,
-  fields,
-}: ResolveDataTabSelectionInput): DataTabSelection {
-  const schema = readSchema(rawIntrospection);
-  if (!schema || !schemaName) return UNRESOLVED;
-
-  const typeMap = buildTypeMap(schema.types);
-  const { queryTypeName } = schema;
-  const queryFields = objectFields(typeMap.get(queryTypeName));
-  if (!queryFields) return UNRESOLVED;
-  const listField = queryFields.find((field) => field.name === `get${schemaName}s`);
-  if (!listField) return { status: "not-on-gateway", queryTypeName };
-
+/** The item OBJECT type of `get<Schema>s → items`, or null when its shape is unexpected. */
+function findItemType(
+  listField: ItemFields[number],
+  typeMap: Map<string, IntrospectionType>,
+): { itemTypeName: string; itemFields: ItemFields } | null {
   const resultTypeName = baseTypeOf(listField.type);
-  const itemsField = objectFields(resultTypeName ? typeMap.get(resultTypeName) : undefined)?.find(
-    (field) => field.name === "items",
-  );
+  const resultFields = objectFields(resultTypeName ? typeMap.get(resultTypeName) : undefined);
+  const itemsField = resultFields?.find((field) => field.name === "items");
   const itemTypeName = itemsField ? baseTypeOf(itemsField.type) : null;
   const itemFields = objectFields(itemTypeName ? typeMap.get(itemTypeName) : undefined);
-  if (!itemTypeName || !itemFields) return UNRESOLVED;
+  return itemTypeName && itemFields ? { itemTypeName, itemFields } : null;
+}
 
+/** Splits the form fields into the ones the item type has and the missing ones, in form order. */
+function splitFormFields(
+  fields: DataTabField[],
+  itemTypeName: string,
+  itemFields: ItemFields,
+  typeMap: Map<string, IntrospectionType>,
+) {
   const itemFieldsByName = new Map(itemFields.map((field) => [field.name, field]));
   const selectable: DataTabField[] = [];
   const missingFields: string[] = [];
@@ -156,7 +149,40 @@ export function resolveDataTabSelection({
       );
     }
   }
+  return { selectable, missingFields, nestedSelection };
+}
 
+/**
+ * Resolves which form fields the live gateway can serve. An unexpected shape of
+ * the schema, query, result or item type gives `unresolved`, and the caller then
+ * builds the query as it did before this helper existed. Nested types are read
+ * by the shared `buildSelectionSet`, so the tab still guards the call.
+ */
+export function resolveDataTabSelection({
+  rawIntrospection,
+  schemaName,
+  fields,
+}: ResolveDataTabSelectionInput): DataTabSelection {
+  const schema = readSchema(rawIntrospection);
+  if (!schema || !schemaName) return UNRESOLVED;
+
+  const typeMap = buildTypeMap(schema.types);
+  const { queryTypeName } = schema;
+  const queryFields = objectFields(typeMap.get(queryTypeName));
+  if (!queryFields) return UNRESOLVED;
+  const listField = queryFields.find((field) => field.name === `get${schemaName}s`);
+  if (!listField) return { status: "not-on-gateway", queryTypeName };
+
+  const itemType = findItemType(listField, typeMap);
+  if (!itemType) return UNRESOLVED;
+  const { itemTypeName, itemFields } = itemType;
+
+  const { selectable, missingFields, nestedSelection } = splitFormFields(
+    fields,
+    itemTypeName,
+    itemFields,
+    typeMap,
+  );
   if (selectable.length === 0) selectable.push(fallbackField(itemFields, typeMap));
 
   return {

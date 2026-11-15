@@ -39,6 +39,9 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100, 200] as const;
  */
 export const INTROSPECTION_WAIT_MS = 15_000;
 
+/** A double quote escaped for a GraphQL string literal. */
+const ESCAPED_QUOTE = String.raw`\"`;
+
 /** The gateway's query root name, used to read its errors when introspection is unavailable. */
 const DEFAULT_QUERY_TYPE_NAME = "Query";
 
@@ -232,11 +235,11 @@ function buildGetQuery(
   ];
 
   if (filter?.trim()) {
-    lines.push(`      filter: "${filter.replaceAll('"', String.raw`\"`)}"`);
+    lines.push(`      filter: "${filter.replaceAll('"', ESCAPED_QUOTE)}"`);
   }
   if (sortBy) {
     const sortObj = JSON.stringify({ [sortBy]: sortDescending ? -1 : 1 });
-    lines.push(`      sort: "${sortObj.replaceAll('"', String.raw`\"`)}"`);
+    lines.push(`      sort: "${sortObj.replaceAll('"', ESCAPED_QUOTE)}"`);
   }
 
   lines.push(

@@ -201,7 +201,7 @@ describe("SchemaDataTab", () => {
     await user.click(screen.getByText("apply-filter"));
     await waitFor(() => {
       const last = executeGraphQL.mock.calls.at(-1)![0].query as string;
-      expect(last).toContain("filter:");
+      expect(last).toContain(String.raw`filter: "{\"name\":\"x\"}"`);
     });
   });
 
@@ -226,7 +226,7 @@ describe("SchemaDataTab", () => {
     await user.click(screen.getByText("apply-sort"));
     await waitFor(() => {
       const last = executeGraphQL.mock.calls.at(-1)![0].query as string;
-      expect(last).toContain("sort:");
+      expect(last).toContain(String.raw`sort: "{\"name\":-1}"`);
     });
   });
 

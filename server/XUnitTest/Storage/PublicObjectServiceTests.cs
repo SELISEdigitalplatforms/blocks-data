@@ -52,8 +52,7 @@ public class PublicObjectServiceTests
             Mock.Of<IObjectAccessResolver>(),
             Mock.Of<IObjectAccessRepository>(),
             Mock.Of<IUploadKeyRouter>(),
-            Mock.Of<IUploadVerificationService>(),
-            new Microsoft.Extensions.Logging.Abstractions.NullLogger<FileManagementService>());
+            Mock.Of<IUploadVerificationService>());
     }
 
     [Fact]

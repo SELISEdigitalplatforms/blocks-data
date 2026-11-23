@@ -1,4 +1,5 @@
 ﻿using Azure.Storage.Blobs.Models;
+using Azure;
 using Azure.Storage.Blobs;
 using DomainService.Configuration;
 using Blocks.Genesis;
@@ -21,6 +22,7 @@ namespace DomainService.Storage
         /// <summary>Lifetime of the server-generated, never-client-visible SAS used to authorize a same-account copy off a private container.</summary>
         private static readonly TimeSpan InternalCopySasExpiry = TimeSpan.FromMinutes(5);
 
+        private readonly BlobServiceClient _blobServiceClient;
         private readonly BlobContainerClient _containerClient;
 
         /// <summary>Private container backing `Public/Quarantine/...`, `Private/Quarantine/...`, and `Verification/...` candidate keys. Never created with public access.</summary>
@@ -31,11 +33,20 @@ namespace DomainService.Storage
             var blobServiceClient = new BlobServiceClient(configuration.ConnectionString);
             var tenantSegment = BlocksContext.GetContext()?.TenantId.ToLower();
 
+            _blobServiceClient = blobServiceClient;
             _containerClient = blobServiceClient.GetBlobContainerClient(tenantSegment);
             _containerClient.CreateIfNotExists(PublicAccessType.Blob);
 
             _quarantineContainerClient = blobServiceClient.GetBlobContainerClient(GetQuarantineContainerName(tenantSegment));
             _quarantineContainerClient.CreateIfNotExists(PublicAccessType.None);
+        }
+
+        /// <summary>For tests: the clients are given, so no account is contacted at construction.</summary>
+        protected internal AzureBlobStorageService(BlobServiceClient blobServiceClient, BlobContainerClient containerClient, BlobContainerClient quarantineContainerClient)
+        {
+            _blobServiceClient = blobServiceClient;
+            _containerClient = containerClient;
+            _quarantineContainerClient = quarantineContainerClient;
         }
 
         private static string GetQuarantineContainerName(string? tenantSegment)
@@ -132,6 +143,54 @@ namespace DomainService.Storage
         public Task<bool> UploadFileToSftpAsync(string fileName, string projectKey, string itemId, string versionId, IFormFile file)
         {
             throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Public read on Azure is the container's access level: <c>Blob</c> lets anyone read a blob whose URL they know,
+        /// and does not let them list the container. The container is created with that level, and an existing one is
+        /// raised to it. The URL is the blob's own address, with no SAS, so it never expires.
+        /// </summary>
+        public async Task<string> UploadPublicObjectAsync(string container, string key, Stream content, string contentType)
+        {
+            var containerClient = _blobServiceClient.GetBlobContainerClient(container);
+            await EnsurePublicBlobAccessAsync(containerClient);
+
+            var blobClient = containerClient.GetBlobClient(key);
+            await blobClient.UploadAsync(content, new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
+            });
+
+            return blobClient.Uri.ToString();
+        }
+
+        public async Task<Stream?> OpenReadAsync(string container, string key)
+        {
+            var blobClient = _blobServiceClient.GetBlobContainerClient(container).GetBlobClient(key);
+
+            try
+            {
+                var response = await blobClient.DownloadStreamingAsync();
+                return response.Value.Content;
+            }
+            catch (RequestFailedException ex) when (ex.Status == 404)
+            {
+                return null;
+            }
+        }
+
+        private static async Task EnsurePublicBlobAccessAsync(BlobContainerClient containerClient)
+        {
+            // CreateIfNotExists answers null when the container is already there.
+            if (await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob) is not null)
+                return;
+
+            var policy = (await containerClient.GetAccessPolicyAsync()).Value;
+            if (policy.BlobPublicAccess == PublicAccessType.Blob)
+                return;
+
+            // Setting the level replaces the stored access policies unless they are passed back.
+            await containerClient.SetAccessPolicyAsync(PublicAccessType.Blob, policy.SignedIdentifiers);
         }
 
         #region Phase1UploadSecurity

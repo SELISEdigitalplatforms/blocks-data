@@ -8,6 +8,7 @@ import { NuqsAdapter } from "nuqs/adapters/react-router/v8";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
+import { MergeAnnouncementBanner } from "./components/merge-announcement/merge-announcement-banner";
 import { Toaster } from "./components/ui-kits/toaster/toaster";
 import { TooltipProvider } from "./components/ui-kits/tooltip/tooltip";
 import { SERVICE_NAME } from "./constants/service.constant";
@@ -36,6 +37,8 @@ createRoot(document.getElementById("root")!).render(
                     name: SERVICE_NAME,
                   }}
                 >
+                  {/* Temporary: Blocks OS merge announcement (until 20 Dec 2026). */}
+                  <MergeAnnouncementBanner />
                   <RouterProvider router={router} />
                 </BlocksAppLayout>
                 <Toaster />

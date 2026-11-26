@@ -42,7 +42,9 @@ export const AddEnvironmentModal = ({
         const bIndex = environmentOptions.find((opt) => opt.value === b)?.index ?? 0;
         return aIndex - bIndex;
       });
-      const domain = import.meta.env.VITE_BASE_DOMAIN || "seliseblocks.com";
+      // BLOCKS_BASE_DOMAIN (I00-WP10). The old name VITE_BASE_DOMAIN never reached the bundle: the
+      // Vite envPrefix is BLOCKS_, so the fallback always applied. Unset, the default is unchanged.
+      const domain = import.meta.env.BLOCKS_BASE_DOMAIN || "seliseblocks.com";
       const shortGuid = shortGuidGenerator(5);
       const applicationContexts = sortedSelected.map((env: string) => ({
         environment: env,

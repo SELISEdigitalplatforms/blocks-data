@@ -1,37 +1,44 @@
+using Blocks.Genesis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Globalization;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace DataGateway.DomainService.Services.RegexAssistant
 {
     public class RegexAssistantService : IRegexAssistantService
     {
+        /// <summary>Model used when the <c>Ai:Model</c> setting is empty: the value this service always sent before the setting existed.</summary>
+        public const string LegacyDefaultModel = "gpt-4o-mini";
+
         private readonly ILogger<RegexAssistantService> _logger;
         private readonly IConfiguration _configuration;
         private readonly string _aiCompletionUrl;
         private readonly string _chatGptTemperature;
         private readonly HttpClient _httpClient;
         private readonly ICloudBuildSecret _cloudBuildSecret;
+        private readonly IChatCompletionClient _chatClient;
         private string _lastErrorMessage;
 
         public RegexAssistantService(
             ILogger<RegexAssistantService> logger,
             IConfiguration configuration,
             HttpClient httpClient,
-            ICloudBuildSecret cloudBuildSecret
+            ICloudBuildSecret cloudBuildSecret,
+            IChatCompletionClient chatClient = null
         )
         {
             _logger = logger;
             _configuration = configuration;
-            _aiCompletionUrl = _configuration["AiCompletionUrl"];
-            _chatGptTemperature = _configuration["ChatGptTemperature"] ?? "0.1";
+            var options = AiOptions.FromConfiguration(_configuration, AiProvider.OpenAiCompatible);
+            _aiCompletionUrl = options.Endpoint;
+            _chatGptTemperature = (options.Temperature ?? 0.1).ToString(CultureInfo.InvariantCulture);
             _httpClient = httpClient;
             _cloudBuildSecret = cloudBuildSecret;
+            _chatClient = chatClient;
 
             _logger.LogInformation("RegexAssistantService: Constructor called");
             _logger.LogInformation($"RegexAssistantService: AI URL: {_aiCompletionUrl}");
@@ -47,7 +54,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                 var context = BuildRegexContext(request);
                 _logger.LogInformation($"GenerateRegexPattern: Context built");
 
-                var temperature = request.Temperature > 0 ? request.Temperature : double.Parse(_chatGptTemperature);
+                var temperature = request.Temperature > 0 ? request.Temperature : double.Parse(_chatGptTemperature, CultureInfo.InvariantCulture);
 
                 var aiCompletionRequest = new AiCompletionRequest(context, temperature);
                 _logger.LogInformation($"GenerateRegexPattern: Calling AiCompletion");
@@ -96,53 +103,46 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                     return null;
                 }
 
-                var encryptedSecret = await GetEncryptedSecretAsync();
-                if (string.IsNullOrEmpty(encryptedSecret))
+                var options = AiOptions.FromConfiguration(_configuration, AiProvider.OpenAiCompatible);
+                var apiKey = options.ResolveApiKey(_configuration);
+                if (string.IsNullOrEmpty(apiKey))
                 {
-                    _logger.LogError("ChatGPT encrypted secret is not configured in vault. Please configure 'ChatGptEncryptedSecret' and 'ChatGptEncryptionKey' in Azure Vault.");
-                    return null;
+                    var encryptedSecret = await GetEncryptedSecretAsync();
+                    if (string.IsNullOrEmpty(encryptedSecret))
+                    {
+                        _logger.LogError("AiCompletion: no API key. Set 'Ai:ApiKeyReference', or configure 'ChatGptEncryptedSecret' and 'ChatGptEncryptionKey' in the vault.");
+                        return null;
+                    }
+
+                    _logger.LogInformation("AiCompletion: Encrypted secret retrieved, attempting decryption");
+                    apiKey = GetDecryptedSecret(encryptedSecret);
+                    if (string.IsNullOrEmpty(apiKey))
+                    {
+                        _logger.LogError("Failed to decrypt ChatGPT API key");
+                        return null;
+                    }
                 }
 
-                _logger.LogInformation("AiCompletion: Encrypted secret retrieved, attempting decryption");
-                var chatGptApiKey = GetDecryptedSecret(encryptedSecret);
-                if (string.IsNullOrEmpty(chatGptApiKey))
-                {
-                    _logger.LogError("Failed to decrypt ChatGPT API key");
-                    return null;
-                }
+                var payload = new AiCompletionModel().ConstructCommand(request.Message, request.Temperature, options.Model ?? LegacyDefaultModel);
+                var messages = payload.messages.Select(m => new ChatMessage(m.role, m.content)).ToList();
+                var client = _chatClient ?? ChatCompletionClients.Create(_httpClient, options, () => apiKey, _logger);
 
-                _logger.LogInformation("AiCompletion: API key decrypted, preparing request");
-                var model = new AiCompletionModel();
-                var payload = model.ConstructCommand(request.Message, request.Temperature);
-
-                var httpRequest = PrepareHttpRequest(_aiCompletionUrl, HttpMethod.Post, JsonConvert.SerializeObject(payload));
-                httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", chatGptApiKey);
-
-                _logger.LogInformation($"AiCompletion: Sending request to {_aiCompletionUrl}");
-
-                // Set timeout for the request
+                // The client has no timeout of its own; the cap that was here stays.
                 using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(30)))
                 {
-                    var httpResponse = await _httpClient.SendAsync(httpRequest, cts.Token);
-
-                    if (httpResponse?.StatusCode == HttpStatusCode.OK)
-                    {
-                        var responseContent = await httpResponse.Content.ReadAsStringAsync();
-                        var response = JsonConvert.DeserializeObject<ChatGptAiCompletionResponse>(responseContent);
-                        var responseMessage = response?.choices?.FirstOrDefault()?.message?.content;
-                        _logger.LogInformation($"AiCompletion: Success - {responseMessage}");
-                        return responseMessage;
-                    }
-                    else
-                    {
-                        var errorContent = await httpResponse?.Content?.ReadAsStringAsync();
-                        _logger.LogError($"AiCompletion: HTTP {httpResponse?.StatusCode} - {errorContent}");
-                    }
+                    var result = await client.CompleteAsync(messages, new ChatCompletionOptions { Model = payload.model, Temperature = request.Temperature }, cts.Token);
+                    _logger.LogInformation("AiCompletion: Success - {PromptTokens} prompt and {CompletionTokens} completion tokens",
+                        result.Usage?.PromptTokens, result.Usage?.CompletionTokens);
+                    return result.Text;
                 }
             }
             catch (System.Threading.Tasks.TaskCanceledException ex)
             {
                 _logger.LogError(ex, "AiCompletion: Request timeout after 30 seconds");
+            }
+            catch (ChatCompletionException ex)
+            {
+                _logger.LogError("AiCompletion: {Message}", ex.Message);
             }
             catch (Exception ex)
             {
@@ -285,20 +285,6 @@ namespace DataGateway.DomainService.Services.RegexAssistant
             {
                 throw new ArgumentException("Invalid Temperature Value. Must be between 0 and 2.");
             }
-        }
-
-        private static HttpRequestMessage PrepareHttpRequest(string requestUrl, HttpMethod httpRequestType, string content = null)
-        {
-            var httpRequest = new HttpRequestMessage(httpRequestType, requestUrl);
-
-            if (content != null)
-            {
-                httpRequest.Content = new StringContent(content, Encoding.UTF8, "application/json");
-            }
-
-            httpRequest.Headers.Add("User-Agent", "blocks-data-regex-assistant/1.0");
-
-            return httpRequest;
         }
     }
 }

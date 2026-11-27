@@ -68,6 +68,8 @@ public class StorageSupportTypesTests
     [InlineData("azure", StorageStrategyCategory.Cloud)]
     [InlineData("AZURE", StorageStrategyCategory.Cloud)]
     [InlineData("aws", StorageStrategyCategory.Cloud)]
+    [InlineData("s3compatible", StorageStrategyCategory.Cloud)]
+    [InlineData("S3Compatible", StorageStrategyCategory.Cloud)]
     [InlineData("SftpStorage", StorageStrategyCategory.Local)]
     public void TryGetCategory_ResolvesTheKnownStrategiesCaseInsensitively(
         string type,

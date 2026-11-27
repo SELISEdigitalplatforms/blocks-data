@@ -15,6 +15,7 @@ namespace Storage.DomainService.Enums
             {
                    new KeyValuePair<string, StorageStrategyCategory>("azure", StorageStrategyCategory.Cloud),
                    new KeyValuePair<string, StorageStrategyCategory>("aws", StorageStrategyCategory.Cloud),
+                   new KeyValuePair<string, StorageStrategyCategory>("s3compatible", StorageStrategyCategory.Cloud),
                    new KeyValuePair<string, StorageStrategyCategory>("sftpstorage", StorageStrategyCategory.Local)
             });
 

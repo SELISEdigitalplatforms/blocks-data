@@ -931,6 +931,57 @@ namespace Storage.DomainService.Services
             return blobClient;
         }
 
+        private const string FallbackContentType = "application/octet-stream";
+
+        public async Task<string> UploadPublicObjectAsync(string container, string key, Stream content, string contentType)
+        {
+            ArgumentNullException.ThrowIfNull(content);
+            PublicObjectRules.Validate(container, key);
+            var service = await GetDefaultStorageServiceForPublicObjectsAsync();
+
+            return await RunPublicObjectOperationAsync(() => service.UploadPublicObjectAsync(
+                container, key, content, string.IsNullOrWhiteSpace(contentType) ? FallbackContentType : contentType));
+        }
+
+        public async Task<Stream?> OpenReadAsync(string container, string key)
+        {
+            PublicObjectRules.Validate(container, key);
+            var service = await GetDefaultStorageServiceForPublicObjectsAsync();
+
+            return await RunPublicObjectOperationAsync(() => service.OpenReadAsync(container, key));
+        }
+
+        private async Task<IStorageService> GetDefaultStorageServiceForPublicObjectsAsync()
+        {
+            var configuration = await GetConfigurationAsync(null);
+
+            return configuration is null
+                ? throw new PublicObjectStorageException(PublicObjectStorageException.ConfigurationMissingCode,
+                    "The tenant has no Default storage configuration.")
+                : GetStorageService(configuration);
+        }
+
+        /// <summary>Gives the caller one exception type, with the provider's own error code, whichever provider failed.</summary>
+        private static async Task<T> RunPublicObjectOperationAsync<T>(Func<Task<T>> operation)
+        {
+            try
+            {
+                return await operation();
+            }
+            catch (NotSupportedException ex)
+            {
+                throw new PublicObjectStorageException(PublicObjectStorageException.NotSupportedCode, ex.Message, ex);
+            }
+            catch (Azure.RequestFailedException ex)
+            {
+                throw new PublicObjectStorageException(ex.ErrorCode ?? PublicObjectStorageException.FailedCode, ex.Message, ex);
+            }
+            catch (Amazon.S3.AmazonS3Exception ex)
+            {
+                throw new PublicObjectStorageException(string.IsNullOrEmpty(ex.ErrorCode) ? PublicObjectStorageException.FailedCode : ex.ErrorCode, ex.Message, ex);
+            }
+        }
+
         private async Task<BlobContainerClient> InitializeBlobContainerClientAsync()
         {
             var configuration = await _configurationProvider.GetByNameAsync(Constants.DefaultConfigurationName);

@@ -7,11 +7,11 @@ namespace DataGateway.DomainService.Services.RegexAssistant
         public List<Message> messages { get; set; }
         public double temperature { get; set; }
 
-        public AiCompletionModel ConstructCommand(string content, double temperature)
+        public AiCompletionModel ConstructCommand(string content, double temperature, string model = null)
         {
             return new AiCompletionModel
             {
-                model = "gpt-4o-mini",
+                model = model,
                 messages = new List<Message>
                 {
                     new Message

@@ -26,6 +26,15 @@ namespace Storage.DomainService.Services
         Task<GetFilesInfoResponse> GetFilesInfoAsync(GetFilesInfoRequest query);
         Task<BlobClient> GetBlobClientAsync(string tenantId);
 
+        /// <summary>
+        /// Stores an object in a named container with public read, using the tenant's Default storage configuration,
+        /// and returns its permanent public URL. Throws <see cref="PublicObjectStorageException"/>.
+        /// </summary>
+        Task<string> UploadPublicObjectAsync(string container, string key, Stream content, string contentType);
+
+        /// <summary>Opens an object of a named container, or returns null when it does not exist. Throws <see cref="PublicObjectStorageException"/>.</summary>
+        Task<Stream?> OpenReadAsync(string container, string key);
+
         Task<BaseMutationResponse> UpdateFileAsync(UpdateFileRequest command);
 
         /// <summary>Creates the next version of an existing file and returns a presigned upload URL.</summary>
